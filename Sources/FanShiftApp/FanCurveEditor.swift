@@ -21,8 +21,11 @@ struct FanCurveEditor: View {
 
     private let leftPad: CGFloat = 38
     private let rightPad: CGFloat = 12
-    private let topPad: CGFloat = 12
+    /// 上面留出一行标签的高度：100% 那一排的点，标签画在点的上方
+    private let topPad: CGFloat = 26
     private let bottomPad: CGFloat = 28
+    /// 点上方标签的大致半宽，用来把靠边的标签往里收，免得被裁掉
+    private let labelHalfWidth: CGFloat = 32
 
     var body: some View {
         GeometryReader { geo in
@@ -45,7 +48,7 @@ struct FanCurveEditor: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
-        .frame(height: 260)
+        .frame(height: 274)
         .padding(.bottom, 4)
     }
 
@@ -180,8 +183,10 @@ struct FanCurveEditor: View {
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1)
                         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 3))
-                        .offset(x: 0, y: -18)
-                        .position(pos)
+                        .position(
+                            x: min(max(pos.x, labelHalfWidth), plot.maxX + rightPad - labelHalfWidth),
+                            y: pos.y - 18
+                        )
                         .allowsHitTesting(false)
                 )
         }

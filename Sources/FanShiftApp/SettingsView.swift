@@ -116,6 +116,10 @@ struct SettingsView: View {
             if !loaded {
                 draft = model.config
                 loaded = true
+                // 调试时默认把带曲线的档位展开，方便截图检查曲线编辑器（展开控件没法用自动化点开）
+                if ProcessInfo.processInfo.environment["FANSHIFT_DEBUG"] == "1" {
+                    expandedStepIDs = Set(draft.cycleSteps.filter { $0.type == .temperature }.map(\.id))
+                }
             }
         }
     }
@@ -208,7 +212,9 @@ struct SettingsView: View {
             HStack {
                 Text("名字")
                     .frame(width: 80, alignment: .leading)
-                TextField(step.wrappedValue.type.displayName, text: step.name)
+                // 标题留空、类型名放进占位文字：不然表单会把标题当成输入框左边的标签再画一遍
+                TextField("", text: step.name, prompt: Text(step.wrappedValue.type.displayName))
+                    .labelsHidden()
                     .textFieldStyle(.roundedBorder)
             }
 
