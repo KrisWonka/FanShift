@@ -15,8 +15,9 @@ public enum ControllerEvent: Equatable {
 /// 不是线程安全的，调用方要保证在同一个队列上用。
 public final class FanController {
     public struct Tuning {
-        /// 每次计算时，平滑温度向新读数靠拢的比例（2 秒算一次时，大约 4 秒跟上）
-        public var smoothing = 0.4
+        /// 每次计算时，平滑温度向新读数靠拢的比例（2 秒算一次时，大约 6 秒跟上）。
+        /// 0.3 是和 TG Pro 对比标定出来的：它的读数也是这样慢半拍，温度在门槛上下晃时不会来回换级。
+        public var smoothing = 0.3
         /// 原始温度到这个值就直接全速，不管曲线怎么画
         public var hardCeiling = 95.0
         /// 已经接管时，温度要比 Stop 边界再低这么多才交还，避免在边界上来回切
@@ -168,12 +169,14 @@ public final class FanController {
                 return .release
             }
             lastTemperature = raw
-            let s = smoothed.map { $0 + tuning.smoothing * (raw - $0) } ?? raw
-            smoothed = s
-            if raw >= tuning.hardCeiling {
+            // 过热保护看最热核心的原始读数，不受修正值和平滑影响
+            if (SensorMath.value(.cpuMax, from: readings) ?? raw) >= tuning.hardCeiling {
                 holding = true
                 return fullSpeed()
             }
+            let corrected = raw + (step.sensor == .cpuMax ? config.hotCoreOffset : 0)
+            let s = smoothed.map { $0 + tuning.smoothing * (corrected - $0) } ?? corrected
+            smoothed = s
             let mode = config.curveMode
             var out = evaluateCurve(step.curve, at: s, mode: mode)
             if out == .stop, holding {

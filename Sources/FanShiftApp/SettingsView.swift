@@ -53,6 +53,16 @@ struct SettingsView: View {
                     Text("阶梯：温度超过某个点就用那个点的转速，换转速时用大约 10 秒缓缓过渡。连直线：两个点之间按比例变化。")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    HStack {
+                        Text("最热核心的温度修正")
+                        Slider(value: $draft.hotCoreOffset, in: -5...5, step: 0.5)
+                        Text(String(format: "%+.1f °C", draft.hotCoreOffset))
+                            .frame(width: 70, alignment: .trailing)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    Text("参考温度选「最热的 CPU 核心」时，先在读数上加这个值再去查曲线。实测 TG Pro 的读数比最热核心低约 2°C，默认 −2 才和原来的曲线手感一致；0 就是原始读数。菜单栏显示的始终是原始读数。")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
 
                 Section("菜单栏") {
@@ -313,7 +323,8 @@ struct SettingsView: View {
 
     /// 当前温度落在这条（正在编辑的）曲线上的位置
     private func liveMarker(for step: CycleStep) -> (temperature: Double, percent: Double?)? {
-        guard let t = SensorMath.value(step.sensor, from: model.snapshot.readings) else { return nil }
+        guard let raw = SensorMath.value(step.sensor, from: model.snapshot.readings) else { return nil }
+        let t = raw + (step.sensor == .cpuMax ? draft.hotCoreOffset : 0)
         if case .percent(let p) = evaluateCurve(step.curve, at: t, mode: draft.curveMode) { return (t, p) }
         return (t, nil)
     }

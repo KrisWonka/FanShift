@@ -17,6 +17,7 @@ final class ControllerTests: XCTestCase {
         var cfg = AppConfig()
         cfg.cycleSteps = steps
         cfg.curveMode = mode
+        cfg.hotCoreOffset = 0  // 这些用例验证的是曲线和状态机本身，不掺温度修正
         return FanController(config: cfg, fans: fans, stepIndex: index, now: t0)
     }
 
@@ -123,9 +124,9 @@ final class ControllerTests: XCTestCase {
         let c = make([curveStep([(40, 0), (60, 100)])])
         c.tuning.rpmDeadband = 0
         _ = c.tick(readings: cpu(40), now: t0)
-        // 读数从 40 跳到 60：平滑后是 40 + 0.4 × 20 = 48 → 40%
+        // 读数从 40 跳到 60：平滑后是 40 + 0.3 × 20 = 46 → 30%
         _ = c.tick(readings: cpu(60), now: t0)
-        XCTAssertEqual(c.lastPercent ?? -1, 40, accuracy: 1e-9)
+        XCTAssertEqual(c.lastPercent ?? -1, 30, accuracy: 1e-9)
         XCTAssertEqual(c.lastTemperature, 60)
     }
 
@@ -189,6 +190,38 @@ final class ControllerTests: XCTestCase {
         c.cycle(now: t0.addingTimeInterval(1))
         // 换档是用户主动操作，直接到新档位的转速
         XCTAssertEqual(c.tick(readings: cpu(50), now: t0.addingTimeInterval(1)).command, .targets([7826, 7826]))
+    }
+
+    func testHotCoreOffsetShiftsOnlyTheHottestCoreReference() {
+        // 阶梯曲线：50°C 以上 55%。最热核心读数 51°C，减 2°C 修正后是 49°C → 还在下面一级（0%）
+        var cfg = AppConfig()
+        cfg.curveMode = .step
+        cfg.hotCoreOffset = -2
+        var hot = curveStep([(40, 0), (50, 55)])
+        hot.sensor = .cpuMax
+        var named = curveStep([(40, 0), (50, 55)])
+        named.sensor = .named("PMU tdie1")
+        cfg.cycleSteps = [hot, named]
+        let c = FanController(config: cfg, fans: fans, now: t0)
+        XCTAssertEqual(c.tick(readings: cpu(51), now: t0).command, .targets([2317, 2317]))
+        XCTAssertEqual(c.lastTemperature, 51)  // 给界面看的仍是原始读数
+        XCTAssertEqual(c.lastPercent, 0)
+        // 53°C − 2 = 51°C → 超过 50，进 55% 这一级
+        XCTAssertEqual(c.tick(readings: cpu(60), now: t0).command, .targets([2317, 2317]))  // 这一刻开始过渡
+        XCTAssertEqual(c.lastPercent, 55)
+        // 指定了具体传感器的档位不做修正：51°C 直接超过 50
+        c.cycle(now: t0)
+        _ = c.tick(readings: cpu(51), now: t0)
+        XCTAssertEqual(c.lastPercent, 55)
+    }
+
+    func testHardCeilingUsesTheRawHottestCore() {
+        // 修正值不能推迟过热保护：最热核心原始读数到 95°C 就全速
+        var cfg = AppConfig()
+        cfg.hotCoreOffset = -5
+        cfg.cycleSteps = [curveStep([(40, 0), (100, 10)])]
+        let c = FanController(config: cfg, fans: fans, now: t0)
+        XCTAssertEqual(c.tick(readings: cpu(95), now: t0).command, .targets([7826, 7826]))
     }
 
     func testSetConfigKeepsCurrentStepByID() {

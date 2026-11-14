@@ -180,6 +180,10 @@ public struct AppConfig: Codable, Equatable {
     public var menuBarShowRPM: Bool = true
 
     public var curveMode: CurveMode = .step
+    /// 参考温度选「最热的 CPU 核心」时，在读数上加的修正值（°C）。
+    /// 实测 TG Pro 的 Highest CPU 比最热核心的读数低约 2°C（四次标定 216 行数据，减 2°C 后 100% 吻合），
+    /// 默认减 2°C，同一条曲线才和原来手感一致。设成 0 就是原始读数。
+    public var hotCoreOffset: Double = -2.0
 
     public var cycleSteps: [CycleStep] = [
         CycleStep(type: .auto, name: "Silence"),
@@ -192,7 +196,7 @@ public struct AppConfig: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case hotkeyEnabled, hotkeyMods, hotkeyKey, hotkeyKeyCode
         case alertEnabled, alertDuration, alertCooldownDone
-        case menuBarShowTemp, menuBarShowRPM, curveMode, cycleSteps
+        case menuBarShowTemp, menuBarShowRPM, curveMode, hotCoreOffset, cycleSteps
     }
 
     public init(from decoder: Decoder) throws {
@@ -208,6 +212,7 @@ public struct AppConfig: Codable, Equatable {
         menuBarShowTemp = try c.decodeIfPresent(Bool.self, forKey: .menuBarShowTemp) ?? d.menuBarShowTemp
         menuBarShowRPM = try c.decodeIfPresent(Bool.self, forKey: .menuBarShowRPM) ?? d.menuBarShowRPM
         curveMode = try c.decodeIfPresent(CurveMode.self, forKey: .curveMode) ?? d.curveMode
+        hotCoreOffset = try c.decodeIfPresent(Double.self, forKey: .hotCoreOffset) ?? d.hotCoreOffset
         cycleSteps = try c.decodeIfPresent([CycleStep].self, forKey: .cycleSteps) ?? d.cycleSteps
     }
 
