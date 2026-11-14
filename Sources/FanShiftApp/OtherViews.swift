@@ -181,6 +181,10 @@ struct StatusView: View {
                 Divider()
                 Text("配置文件：\(AppPaths.config.path)")
                     .font(.caption).foregroundColor(.secondary).textSelection(.enabled)
+                if !model.menuBarDiagnostics.isEmpty {
+                    Text("菜单栏项：\(model.menuBarDiagnostics)")
+                        .font(.caption).foregroundColor(.secondary).textSelection(.enabled)
+                }
                 if model.configSource == .migratedFromLegacy {
                     Text("这份配置是第一次启动时从旧版（~/.hammerspoon/tgpro-hotkey-config.json）搬过来的，旧文件没有动。")
                         .font(.caption).foregroundColor(.secondary)

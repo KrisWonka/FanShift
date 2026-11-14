@@ -43,6 +43,8 @@ final class AppModel: ObservableObject {
     @Published var selectedTab = 0
     /// 菜单栏项是不是被刘海挡住了（由菜单栏那边检测后写进来）
     @Published var menuBarObstructed = false
+    /// 菜单栏项的实际位置（Status 页底部显示，排查「看不到菜单栏项」时用）
+    @Published var menuBarDiagnostics = ""
 
     let configSource: AppConfig.Source
     let dryRun: Bool
