@@ -8,7 +8,7 @@
 #   - 调试开关打开：带曲线的档位默认展开；kill -USR1 <pid> 相当于按一次快捷键
 # 用法：bash scripts/dev-sandbox.sh        启动（会先重新打包）
 #       bash scripts/dev-sandbox.sh stop   退出并清理
-#       SNAPSHOTS=1 bash scripts/dev-sandbox.sh   启动并把各页和菜单栏项渲染成 PNG（看不到屏幕时用）
+#       SNAPSHOTS=1 bash scripts/dev-sandbox.sh   启动并把各页和菜单栏项渲染成 PNG
 # 日志和进程号在同一个目录下的 log.txt 和 pid，启动后会打印出来
 # 注意：别动测试副本里的「登录时自动启动」开关，它改的是真实的自启项。
 set -euo pipefail

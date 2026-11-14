@@ -129,7 +129,7 @@ struct SettingsView: View {
             if !loaded {
                 draft = model.config
                 loaded = true
-                // 调试时默认把带曲线的档位展开，方便截图检查曲线编辑器（展开控件没法用自动化点开）
+                // 调试时默认把带曲线的档位展开，方便截图检查曲线编辑器
                 if ProcessInfo.processInfo.environment["FANSHIFT_DEBUG"] == "1" {
                     expandedStepIDs = Set(draft.cycleSteps.filter { $0.type == .temperature }.map(\.id))
                 }

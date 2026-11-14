@@ -21,10 +21,10 @@
 
 ## 安装
 
-需要 Xcode 命令行工具。
+需要 Xcode 命令行工具。下面的命令都在仓库根目录下运行。
 
 ```bash
-cd /Users/kris/Documents/FanShift && bash scripts/build-app.sh --install
+bash scripts/build-app.sh --install
 ```
 
 第一次启动会弹窗要求安装后台程序，输一次密码。之后不用再输。
@@ -32,7 +32,7 @@ cd /Users/kris/Documents/FanShift && bash scripts/build-app.sh --install
 从旧方案（TG Pro + Hammerspoon 里的 tgpro-hotkey）切换过来，用这个脚本，它会顺便让 TG Pro 交出风扇、停用 Hammerspoon 里的旧脚本，每一步都有备份：
 
 ```bash
-cd /Users/kris/Documents/FanShift && bash scripts/cutover-from-tgpro.sh
+bash scripts/cutover-from-tgpro.sh
 ```
 
 ## 它是怎么工作的
@@ -45,14 +45,15 @@ cd /Users/kris/Documents/FanShift && bash scripts/cutover-from-tgpro.sh
 ## 卸载
 
 ```bash
-cd /Users/kris/Documents/FanShift && bash scripts/uninstall.sh
+bash scripts/uninstall.sh
 ```
 
 ## 开发
 
 ```bash
-cd /Users/kris/Documents/FanShift && swift test --build-system native   # 单元测试
-cd /Users/kris/Documents/FanShift && swift build && .build/debug/fanshiftctl status   # 看风扇和温度
+swift test                                            # 单元测试
+swift build && .build/debug/fanshiftctl status        # 看风扇和温度
+bash scripts/dev-sandbox.sh                           # 起一份隔离的测试副本（不碰风扇，配置单独一份）
 ```
 
 `fanshiftctl` 的其他子命令：`sensors`（列出传感器）、`shadow`（只算不写，和风扇实际目标转速并排对比）、`helper info`（后台程序的信息）。
