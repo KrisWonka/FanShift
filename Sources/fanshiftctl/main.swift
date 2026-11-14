@@ -35,15 +35,15 @@ func printStatus() {
     }
     let readings = TemperatureSensors().readAll()
     print("温度传感器 \(readings.count) 个")
-    print("  最热的 CPU 传感器 \(fmt(SensorMath.value(.cpuMax, from: readings)))°C")
-    print("  CPU 平均 \(fmt(SensorMath.value(.cpuAvg, from: readings)))°C")
+    print("  最热的 CPU 核心 \(fmt(SensorMath.value(.cpuMax, from: readings)))°C")
+    print("  芯片各温度点的平均 \(fmt(SensorMath.value(.cpuAvg, from: readings)))°C")
     print("  所有传感器里最热的 \(fmt(SensorMath.value(.anyMax, from: readings)))°C")
 }
 
 func printSensors() {
     for r in TemperatureSensors().readAll() {
         var tag = ""
-        if SensorMath.isCalibration(r.name) { tag = "（校准读数，不参与计算）" } else if SensorMath.isCPU(r.name) { tag = "CPU" }
+        if SensorMath.isCalibration(r.name) { tag = "（校准读数，不参与计算）" } else if SensorMath.isCore(r.name) { tag = "核心" } else if SensorMath.isDie(r.name) { tag = "芯片" }
         print("\(r.name.padding(toLength: 22, withPad: " ", startingAt: 0)) \(String(format: "%6.2f", r.value))  \(tag)")
     }
 }
@@ -83,6 +83,23 @@ func shadow(stepName: String?, seconds: Int) {
             fmt(actualPercent),
             fmt(try? hw.actual(fan: 0), 0),
         ].joined(separator: ","))
+        Thread.sleep(forTimeInterval: 2)
+    }
+}
+
+/// 标定用：把 SMC 里所有温度类的键和风扇当前目标转速一起记下来（CSV）
+func calib(seconds: Int) {
+    guard let hw = try? SMCFans() else { fail("读不到风扇") }
+    let keys = SMC.allKeys().filter { $0.hasPrefix("T") && SMC.info($0)?.type == "flt " }
+    let sensors = TemperatureSensors()
+    FileHandle.standardError.write(Data("SMC 温度类的键 \(keys.count) 个，采样 \(seconds) 秒\n".utf8))
+    print((["t", "target", "hidMax"] + keys).joined(separator: ","))
+    let start = Date()
+    while Date().timeIntervalSince(start) < Double(seconds) {
+        let hid = SensorMath.value(.cpuMax, from: sensors.readAll())
+        var row = [fmt(Date().timeIntervalSince(start), 0), fmt(try? hw.target(fan: 0), 0), fmt(hid)]
+        for k in keys { row.append(fmt(try? SMC.readDouble(k))) }
+        print(row.joined(separator: ","))
         Thread.sleep(forTimeInterval: 2)
     }
 }
@@ -137,6 +154,8 @@ case "shadow":
     let name = args.count >= 2 && Int(args[1]) == nil ? args[1] : nil
     let secs = args.dropFirst().compactMap { Int($0) }.first ?? 60
     shadow(stepName: name, seconds: secs)
+case "calib":
+    calib(seconds: args.dropFirst().compactMap { Int($0) }.first ?? 60)
 case "helper":
     helper(Array(args.dropFirst()))
 default:

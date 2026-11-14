@@ -58,6 +58,19 @@ public enum SMC {
         return (string(ki.type), Array(buf.prefix(Int(min(ki.size, 32)))))
     }
 
+    /// 枚举本机所有 SMC 键名（几千个，用于诊断和找传感器）
+    public static func allKeys() -> [String] {
+        guard let count = try? readDouble("#KEY") else { return [] }
+        var keys: [String] = []
+        keys.reserveCapacity(Int(count))
+        for i in 0..<UInt32(count) {
+            var code: UInt32 = 0
+            let st = csmc_key_at_index(i, &code)
+            if st.kr == 0, st.result == 0 { keys.append(string(code)) }
+        }
+        return keys
+    }
+
     /// 把常见数值类型统一读成 Double
     public static func readDouble(_ key: String) throws -> Double {
         let (type, b) = try read(key)

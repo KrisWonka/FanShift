@@ -13,9 +13,10 @@ final class ControllerTests: XCTestCase {
         [SensorReading(name: "PMU tdie1", value: temp), SensorReading(name: "PMU tdie2", value: temp)]
     }
 
-    private func make(_ steps: [CycleStep], index: Int = 0) -> FanController {
+    private func make(_ steps: [CycleStep], index: Int = 0, mode: CurveMode = .linear) -> FanController {
         var cfg = AppConfig()
         cfg.cycleSteps = steps
+        cfg.curveMode = mode
         return FanController(config: cfg, fans: fans, stepIndex: index, now: t0)
     }
 
@@ -152,6 +153,42 @@ final class ControllerTests: XCTestCase {
         guard case .targets = c.tick(readings: cpu(49), now: t0).command else { return XCTFail("应继续接管") }
         // 落到 47.9°C：超过 2°C，交还
         XCTAssertEqual(c.tick(readings: cpu(47.9), now: t0).command, .release)
+    }
+
+    func testStepModeJumpsOnAcquireThenRampsBetweenLevels() {
+        // 阶梯方式：40°C 以上 0%（最低转速 2317），60°C 以上 100%（7826）
+        let c = make([curveStep([(40, 0), (60, 100)])], mode: .step)
+        c.tuning.smoothing = 1
+        // 刚接管：直接到这一级，不过渡
+        XCTAssertEqual(c.tick(readings: cpu(50), now: t0).command, .targets([2317, 2317]))
+        // 温度超过 60°C：这一刻开始过渡，先还在原来的转速
+        XCTAssertEqual(c.tick(readings: cpu(61), now: t0.addingTimeInterval(2)).command, .targets([2317, 2317]))
+        // 过渡总共 10 秒，过了 5 秒走到一半：2317 + 0.5 × 5509 = 5071.5
+        XCTAssertEqual(c.tick(readings: cpu(61), now: t0.addingTimeInterval(7)).command, .targets([5071.5, 5071.5]))
+        // 10 秒后到位，之后保持
+        XCTAssertEqual(c.tick(readings: cpu(61), now: t0.addingTimeInterval(12)).command, .targets([7826, 7826]))
+        XCTAssertEqual(c.tick(readings: cpu(70), now: t0.addingTimeInterval(60)).command, .targets([7826, 7826]))
+        XCTAssertEqual(c.lastPercent, 100)
+    }
+
+    func testStepModeRampRestartsFromCurrentSpeedWhenLevelChangesMidway() {
+        let c = make([curveStep([(40, 0), (60, 100)])], mode: .step)
+        c.tuning.smoothing = 1
+        _ = c.tick(readings: cpu(50), now: t0)
+        _ = c.tick(readings: cpu(61), now: t0.addingTimeInterval(2))
+        _ = c.tick(readings: cpu(61), now: t0.addingTimeInterval(7))   // 走到一半：5071.5
+        // 温度又掉回 60°C 以下：从 5071.5 往回过渡，这一刻还在 5071.5
+        XCTAssertEqual(c.tick(readings: cpu(55), now: t0.addingTimeInterval(8)).command, .targets([5071.5, 5071.5]))
+        // 再过 5 秒，回到一半：5071.5 − 0.5 × (5071.5 − 2317) = 3694.25
+        XCTAssertEqual(c.tick(readings: cpu(55), now: t0.addingTimeInterval(13)).command, .targets([3694.25, 3694.25]))
+    }
+
+    func testSwitchingStepsDoesNotRamp() {
+        let c = make([curveStep([(40, 0)], name: "Low"), curveStep([(40, 100)], name: "High")], mode: .step)
+        XCTAssertEqual(c.tick(readings: cpu(50), now: t0).command, .targets([2317, 2317]))
+        c.cycle(now: t0.addingTimeInterval(1))
+        // 换档是用户主动操作，直接到新档位的转速
+        XCTAssertEqual(c.tick(readings: cpu(50), now: t0.addingTimeInterval(1)).command, .targets([7826, 7826]))
     }
 
     func testSetConfigKeepsCurrentStepByID() {

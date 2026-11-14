@@ -27,6 +27,23 @@ public enum CycleStepType: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// 曲线上两个点之间怎么取值
+public enum CurveMode: String, Codable, CaseIterable, Identifiable {
+    /// 阶梯：温度超过某个点，就用那个点的转速，直到超过下一个点（TG Pro 的做法）
+    case step
+    /// 连直线：两个点之间按比例过渡
+    case linear
+
+    public var id: String { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .step: return "阶梯（和 TG Pro 一样）"
+        case .linear: return "连直线（更平滑，同一条曲线下转速会更高）"
+        }
+    }
+}
+
 public struct CurvePoint: Codable, Identifiable, Equatable {
     /// 拖到 0% 以下的点记成这个值，表示 Stop
     public static let stopSentinel = -10
@@ -162,6 +179,8 @@ public struct AppConfig: Codable, Equatable {
     public var menuBarShowTemp: Bool = true
     public var menuBarShowRPM: Bool = true
 
+    public var curveMode: CurveMode = .step
+
     public var cycleSteps: [CycleStep] = [
         CycleStep(type: .auto, name: "Silence"),
         CycleStep(type: .temperature, name: "Performance", curve: CurveTemplate.performance.points),
@@ -173,7 +192,7 @@ public struct AppConfig: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case hotkeyEnabled, hotkeyMods, hotkeyKey, hotkeyKeyCode
         case alertEnabled, alertDuration, alertCooldownDone
-        case menuBarShowTemp, menuBarShowRPM, cycleSteps
+        case menuBarShowTemp, menuBarShowRPM, curveMode, cycleSteps
     }
 
     public init(from decoder: Decoder) throws {
@@ -188,6 +207,7 @@ public struct AppConfig: Codable, Equatable {
         alertCooldownDone = try c.decodeIfPresent(String.self, forKey: .alertCooldownDone) ?? d.alertCooldownDone
         menuBarShowTemp = try c.decodeIfPresent(Bool.self, forKey: .menuBarShowTemp) ?? d.menuBarShowTemp
         menuBarShowRPM = try c.decodeIfPresent(Bool.self, forKey: .menuBarShowRPM) ?? d.menuBarShowRPM
+        curveMode = try c.decodeIfPresent(CurveMode.self, forKey: .curveMode) ?? d.curveMode
         cycleSteps = try c.decodeIfPresent([CycleStep].self, forKey: .cycleSteps) ?? d.cycleSteps
     }
 

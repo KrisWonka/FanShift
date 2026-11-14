@@ -8,47 +8,70 @@ final class CurveTests: XCTestCase {
 
     func testInterpolatesBetweenPoints() {
         // Performance 曲线：45°C → 25%，50°C → 55%。47.5°C 在正中间 → 40%
-        let out = evaluateCurve(CurveTemplate.performance.points, at: 47.5)
+        let out = evaluateCurve(CurveTemplate.performance.points, at: 47.5, mode: .linear)
         guard case .percent(let p) = out else { return XCTFail("应该是百分比") }
         XCTAssertEqual(p, 40, accuracy: 1e-9)
     }
 
     func testExactlyOnAPoint() {
-        XCTAssertEqual(evaluateCurve(CurveTemplate.performance.points, at: 50), .percent(55))
+        XCTAssertEqual(evaluateCurve(CurveTemplate.performance.points, at: 50, mode: .linear), .percent(55))
     }
 
     func testBelowFirstAndAboveLast() {
         let curve = CurveTemplate.performance.points
-        XCTAssertEqual(evaluateCurve(curve, at: 10), .percent(0))
-        XCTAssertEqual(evaluateCurve(curve, at: 99), .percent(100))
+        XCTAssertEqual(evaluateCurve(curve, at: 10, mode: .linear), .percent(0))
+        XCTAssertEqual(evaluateCurve(curve, at: 99, mode: .linear), .percent(100))
     }
 
     func testUnsortedInputIsSorted() {
         let curve = pts([(60, 80), (40, 20)])
-        XCTAssertEqual(evaluateCurve(curve, at: 50), .percent(50))
+        XCTAssertEqual(evaluateCurve(curve, at: 50, mode: .linear), .percent(50))
     }
 
     func testEmptyCurveMeansStop() {
-        XCTAssertEqual(evaluateCurve([], at: 50), .stop)
+        XCTAssertEqual(evaluateCurve([], at: 50, mode: .linear), .stop)
     }
 
     func testStopPointCoversUntilNextPoint() {
         let curve = pts([(30, CurvePoint.stopSentinel), (50, 20), (60, 40)])
-        XCTAssertEqual(evaluateCurve(curve, at: 25), .stop)
-        XCTAssertEqual(evaluateCurve(curve, at: 40), .stop)
-        XCTAssertEqual(evaluateCurve(curve, at: 50), .percent(20))
-        XCTAssertEqual(evaluateCurve(curve, at: 55), .percent(30))
+        XCTAssertEqual(evaluateCurve(curve, at: 25, mode: .linear), .stop)
+        XCTAssertEqual(evaluateCurve(curve, at: 40, mode: .linear), .stop)
+        XCTAssertEqual(evaluateCurve(curve, at: 50, mode: .linear), .percent(20))
+        XCTAssertEqual(evaluateCurve(curve, at: 55, mode: .linear), .percent(30))
     }
 
     func testNormalPointFollowedByStopHoldsItsValue() {
         let curve = pts([(40, 20), (50, CurvePoint.stopSentinel)])
-        XCTAssertEqual(evaluateCurve(curve, at: 45), .percent(20))
-        XCTAssertEqual(evaluateCurve(curve, at: 60), .stop)
+        XCTAssertEqual(evaluateCurve(curve, at: 45, mode: .linear), .percent(20))
+        XCTAssertEqual(evaluateCurve(curve, at: 60, mode: .linear), .stop)
     }
 
     func testDuplicateTemperaturesDoNotDivideByZero() {
         let curve = pts([(40, 20), (40, 60), (50, 80)])
-        XCTAssertEqual(evaluateCurve(curve, at: 45), .percent(70))
+        XCTAssertEqual(evaluateCurve(curve, at: 45, mode: .linear), .percent(70))
+    }
+
+    func testStepModeHoldsEachPointUntilTheNext() {
+        // 阶梯：温度「超过」某个点才用它的值。Performance 曲线：45°C → 25%，50°C → 55%
+        let curve = CurveTemplate.performance.points
+        XCTAssertEqual(evaluateCurve(curve, at: 47.5, mode: .step), .percent(25))
+        XCTAssertEqual(evaluateCurve(curve, at: 50, mode: .step), .percent(25))    // 正好 50 还不算超过
+        XCTAssertEqual(evaluateCurve(curve, at: 50.1, mode: .step), .percent(55))
+        XCTAssertEqual(evaluateCurve(curve, at: 99, mode: .step), .percent(100))
+    }
+
+    func testStepModeBelowFirstPointMeansNoRule() {
+        let curve = CurveTemplate.performance.points  // 第一个点在 30°C
+        XCTAssertEqual(evaluateCurve(curve, at: 30, mode: .step), .stop)
+        XCTAssertEqual(evaluateCurve(curve, at: 30.1, mode: .step), .percent(0))
+        XCTAssertEqual(evaluateCurve([], at: 50, mode: .step), .stop)
+    }
+
+    func testStepModeStopPoint() {
+        let curve = pts([(30, CurvePoint.stopSentinel), (50, 20), (60, 40)])
+        XCTAssertEqual(evaluateCurve(curve, at: 45, mode: .step), .stop)
+        XCTAssertEqual(evaluateCurve(curve, at: 55, mode: .step), .percent(20))
+        XCTAssertEqual(evaluateCurve(curve, at: 65, mode: .step), .percent(40))
     }
 
     func testPercentToRPMUsesFanRange() {
@@ -167,11 +190,30 @@ final class ConfigTests: XCTestCase {
             SensorReading(name: "NAND CH0 temp", value: 36),
             SensorReading(name: "gas gauge battery", value: 32),
         ]
+        // 读不到核心温度的机器：cpuMax 退回到芯片温度点里最热的
         XCTAssertEqual(SensorMath.value(.cpuMax, from: readings), 50)
         XCTAssertEqual(SensorMath.value(.cpuAvg, from: readings), 47)
         XCTAssertEqual(SensorMath.value(.anyMax, from: readings), 50)
         XCTAssertEqual(SensorMath.value(.named("NAND CH0 temp"), from: readings), 36)
         XCTAssertNil(SensorMath.value(.named("没有这个"), from: readings))
         XCTAssertNil(SensorMath.value(.cpuMax, from: []))
+    }
+
+    func testCoreTemperaturesDriveCpuMaxButNotCpuAvg() {
+        let readings = [
+            SensorReading(name: "PMU tdie1", value: 50),
+            SensorReading(name: "PMU tdie2", value: 44),
+            SensorReading(name: SensorMath.coreName("Tp00"), value: 58),
+            SensorReading(name: SensorMath.coreName("Tp04"), value: 53),
+        ]
+        // 曲线参考的温度 = 最热的 CPU 核心（等同 TG Pro 的 Highest CPU）
+        XCTAssertEqual(SensorMath.value(.cpuMax, from: readings), 58)
+        // Cooldown 参考的温度仍是芯片温度点的平均（和旧版一致）
+        XCTAssertEqual(SensorMath.value(.cpuAvg, from: readings), 47)
+        XCTAssertEqual(SensorMath.value(.anyMax, from: readings), 58)
+        XCTAssertTrue(SensorMath.isCore(SensorMath.coreName("Tp00")))
+        XCTAssertFalse(SensorMath.isDie(SensorMath.coreName("Tp00")))
+        XCTAssertTrue(SensorMath.isDie("PMU tdie1"))
+        XCTAssertFalse(SensorMath.isDie("PMU tcal"))
     }
 }

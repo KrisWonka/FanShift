@@ -35,9 +35,15 @@ public struct SensorReading: Equatable {
     }
 }
 
-/// 读本机所有温度传感器。同一个对象可以反复读。
+/// 读本机所有温度传感器。同一个对象可以反复读，但要在同一个队列上用。
+///
+/// 读数来自两处：
+/// - IOHID 的温度传感器（芯片上的温度点、硬盘、电池）；
+/// - SMC 里的 CPU 核心温度（键名 Tp** 是性能核心，Te** 是能效核心）。核心温度比芯片上的温度点
+///   更靠近发热源，负载下要高出几度。TG Pro 的「Highest CPU」跟的就是这一组（实测吻合度 99%）。
 public final class TemperatureSensors {
     private let client: CFTypeRef?
+    private var coreKeys: [String]?
 
     public init() {
         if let c = _IOHIDEventSystemClientCreate(kCFAllocatorDefault)?.takeRetainedValue() {
@@ -52,8 +58,13 @@ public final class TemperatureSensors {
         }
     }
 
-    /// 同名传感器会重复出现，合并取平均；结果按名字排序。读不到时返回空数组。
+    /// 所有读数，按名字排序。读不到时返回空数组。
     public func readAll() -> [SensorReading] {
+        (readHID() + readCores()).sorted { $0.name < $1.name }
+    }
+
+    /// IOHID 的温度传感器。同名的会重复出现，合并取平均。
+    private func readHID() -> [SensorReading] {
         guard let client, let services = _IOHIDEventSystemClientCopyServices(client) as? [CFTypeRef] else { return [] }
         var groups: [String: [Double]] = [:]
         for svc in services {
@@ -63,16 +74,27 @@ public final class TemperatureSensors {
             let v = _IOHIDEventGetFloatValue(event, kIOHIDEventFieldTemperatureLevel)
             if v.isFinite, v > 0, v < 150 { groups[name, default: []].append(v) }
         }
-        return groups
-            .map { SensorReading(name: $0.key, value: $0.value.reduce(0, +) / Double($0.value.count)) }
-            .sorted { $0.name < $1.name }
+        return groups.map { SensorReading(name: $0.key, value: $0.value.reduce(0, +) / Double($0.value.count)) }
+    }
+
+    /// SMC 里的 CPU 核心温度。键名第一次读的时候找一遍（要枚举几千个键，约 0.1 秒），之后只读这几个。
+    private func readCores() -> [SensorReading] {
+        if coreKeys == nil {
+            coreKeys = SMC.allKeys()
+                .filter { ($0.hasPrefix("Tp") || $0.hasPrefix("Te")) && SMC.info($0)?.type == "flt " }
+                .sorted()
+        }
+        return (coreKeys ?? []).compactMap { key in
+            guard let v = try? SMC.readDouble(key), v.isFinite, v > 10, v < 130 else { return nil }
+            return SensorReading(name: SensorMath.coreName(key), value: v)
+        }
     }
 }
 
 /// 一个档位的曲线参考哪个温度
-public enum SensorSelection: Equatable, Codable {
-    case cpuMax          // 最热的 CPU 传感器（默认）
-    case cpuAvg          // CPU 传感器平均
+public enum SensorSelection: Hashable, Codable {
+    case cpuMax          // 最热的 CPU 核心（默认；等同 TG Pro 的 Highest CPU）
+    case cpuAvg          // 芯片上各温度点的平均（Cooldown 用的就是它）
     case anyMax          // 所有传感器里最热的（含硬盘、电池）
     case named(String)   // 指定某一个传感器
 
@@ -107,7 +129,7 @@ public enum SensorSelection: Equatable, Codable {
 
     public var displayName: String {
         switch self {
-        case .cpuMax: return "最热的 CPU 传感器"
+        case .cpuMax: return "最热的 CPU 核心"
         case .cpuAvg: return "CPU 平均"
         case .anyMax: return "所有传感器里最热的"
         case .named(let n): return n
@@ -121,22 +143,45 @@ public enum SensorMath {
         name.lowercased().contains("tcal")
     }
 
-    /// CPU 芯片上的温度点。M5 上叫 "PMU tdie1…14"；其他机型常见 pACC / eACC / SOC die。
-    public static func isCPU(_ name: String) -> Bool {
+    private static let corePrefix = "CPU 核心 "
+
+    /// SMC 核心温度键在界面上显示的名字
+    public static func coreName(_ smcKey: String) -> String {
+        corePrefix + smcKey
+    }
+
+    /// CPU 核心温度（来自 SMC）
+    public static func isCore(_ name: String) -> Bool {
+        name.hasPrefix(corePrefix)
+    }
+
+    /// 芯片上的温度点（来自 IOHID）。M5 上叫 "PMU tdie1…14"；其他机型常见 pACC / eACC / SOC die。
+    public static func isDie(_ name: String) -> Bool {
         let n = name.lowercased()
-        if isCalibration(n) { return false }
+        if isCalibration(n) || isCore(name) { return false }
         return n.contains("tdie") || n.contains("pacc") || n.contains("eacc") || n.contains("soc") || n.contains("cpu")
     }
 
+    public static func isCPU(_ name: String) -> Bool {
+        isCore(name) || isDie(name)
+    }
+
     /// 按选择算出一个温度。没有可用读数时返回 nil。
+    ///
+    /// - cpuMax：最热的 CPU 核心；读不到核心温度的机器退回到芯片温度点里最热的。
+    /// - cpuAvg：芯片上各温度点的平均（旧版 Cooldown 用的就是这个口径）；没有就退回到核心温度的平均。
     public static func value(_ selection: SensorSelection, from readings: [SensorReading]) -> Double? {
         let usable = readings.filter { !isCalibration($0.name) }
+        let cores = usable.filter { isCore($0.name) }.map(\.value)
+        let dies = usable.filter { isDie($0.name) }.map(\.value)
+        func average(_ xs: [Double]) -> Double? {
+            xs.isEmpty ? nil : xs.reduce(0, +) / Double(xs.count)
+        }
         switch selection {
         case .cpuMax:
-            return usable.filter { isCPU($0.name) }.map(\.value).max()
+            return cores.max() ?? dies.max()
         case .cpuAvg:
-            let cpu = usable.filter { isCPU($0.name) }.map(\.value)
-            return cpu.isEmpty ? nil : cpu.reduce(0, +) / Double(cpu.count)
+            return average(dies) ?? average(cores)
         case .anyMax:
             return usable.map(\.value).max()
         case .named(let name):
