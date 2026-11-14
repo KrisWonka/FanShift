@@ -3,8 +3,9 @@
 #
 # 做的事（每一步改之前都先备份，备份目录最后会打印出来）：
 #   1. 编译并把 FanShift 装进 /Applications
-#   2. 退出 TG Pro，把它从登录项里去掉，并把它的风扇控制改回「系统默认」
+#   2. 退出 TG Pro，并把它的风扇控制改回「系统默认」
 #      （这样以后再打开 TG Pro 看传感器，它也不会和 FanShift 抢风扇）
+#      TG Pro 自己的「登录时启动」脚本关不掉，开着的话最后会提示你手动关
 #   3. 注释掉 ~/.hammerspoon/init.lua 里的 require("tgpro-hotkey")，重启 Hammerspoon
 #      （Hammerspoon 本身和里面的其他脚本都不动）
 #   4. 去掉旧的自启项 com.kriswonka.tghotkey.autostart（它会在登录时打开 TG Pro）
@@ -44,10 +45,14 @@ if defaults read "$TGPRO_DOMAIN" fanControlType >/dev/null 2>&1; then
     defaults write "$TGPRO_DOMAIN" fanControlType -int 0
     defaults write "$TGPRO_DOMAIN" enableSystemOverrides -array -int 0 -int 0
 fi
-if osascript -e 'tell application "System Events" to get the name of every login item' 2>/dev/null | grep -q "TG Pro"; then
-    osascript -e 'tell application "System Events" to delete login item "TG Pro"' >/dev/null 2>&1 || true
+# System Events 不应答时别干等（默认超时 2 分钟）
+if osascript -e 'with timeout of 10 seconds' -e 'tell application "System Events" to get the name of every login item' -e 'end timeout' 2>/dev/null | grep -q "TG Pro"; then
+    osascript -e 'with timeout of 10 seconds' -e 'tell application "System Events" to delete login item "TG Pro"' -e 'end timeout' >/dev/null 2>&1 || true
     echo "tgpro-login-item" >> "$BACKUP/removed.txt"
 fi
+# TG Pro 自己的「登录时启动」是它用自带的小助手注册的，不在上面那个列表里，脚本关不掉
+TGPRO_AUTOLAUNCH=0
+if [ "$(defaults read "$TGPRO_DOMAIN" launchOnLogin 2>/dev/null || echo 0)" = "1" ]; then TGPRO_AUTOLAUNCH=1; fi
 
 echo "== 3/5 停用 Hammerspoon 里的 tgpro-hotkey"
 if [ -f "$INIT_LUA" ] && grep -qE '^[[:space:]]*require\("tgpro-hotkey"\)' "$INIT_LUA"; then
@@ -95,3 +100,8 @@ echo
 echo "✅ 切换完成。FanShift 已启动：第一次会弹窗要求安装后台程序，输一次密码即可。"
 echo "   备份在：$BACKUP"
 echo "   想退回旧方案：bash \"$ROOT/scripts/rollback-to-tgpro.sh\" \"$BACKUP\""
+if [ "$TGPRO_AUTOLAUNCH" = "1" ]; then
+    echo
+    echo "⚠ TG Pro 自己的「登录时启动」还开着，下次登录它还会自己打开（不会再碰风扇，但占菜单栏位置）。"
+    echo "   要关：打开 TG Pro → 设置 → 取消 Launch on login；或者 系统设置 → 通用 → 登录项。"
+fi

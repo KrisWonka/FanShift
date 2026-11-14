@@ -215,9 +215,16 @@ final class AppModel: ObservableObject {
             if state.isReady { self.tick() }
         }
         DispatchQueue.main.async {
-            self.helperState = state
-            if state.isReady { self.lastError = nil }
+            if self.helperState != state { self.helperState = state }
+            if state.isReady, self.lastError != nil { self.lastError = nil }
         }
+    }
+
+    /// 后台程序还不可用时，每 10 秒重新确认一次。刚装好还没连上、被系统重启、或者是在别处装的，都能自己接上。
+    private func recheckHelperIfNeeded() {
+        guard !dryRun, !helperReady, Date().timeIntervalSince(lastHelperCheck) > 10 else { return }
+        lastHelperCheck = Date()
+        refreshHelper()
     }
 
     // MARK: 以下都在 queue 上执行
@@ -231,6 +238,7 @@ final class AppModel: ObservableObject {
     }
 
     private func tick() {
+        recheckHelperIfNeeded()
         let readings = sensors.readAll()
         let (computed, events) = controller.tick(readings: readings, now: Date())
         for event in events {

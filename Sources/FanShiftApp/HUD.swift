@@ -77,6 +77,12 @@ final class HUD {
         }
     }
 
+    /// 立刻收起（要弹别的窗口时用，免得挡住）
+    func hide() {
+        generation += 1
+        panel?.orderOut(nil)
+    }
+
     static func debugLog(_ line: String) {
         guard ProcessInfo.processInfo.environment["FANSHIFT_DEBUG"] == "1" else { return }
         FileHandle.standardError.write(Data("[hud \(Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 1000))] \(line)\n".utf8))

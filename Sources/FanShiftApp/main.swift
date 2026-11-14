@@ -30,7 +30,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         model.start()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.model.announceCurrent() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self.offerHelperInstallIfNeeded() }
+        // 这个弹窗不能从 DispatchQueue.main 的块里弹：弹窗不关，那个块就不结束，主队列被它一直占着，
+        // 屏幕提示收不起来、界面也不刷新。Timer 的回调不占主队列，没有这个问题。
+        Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+            self?.offerHelperInstallIfNeeded()
+        }
         installDebugHooks()
     }
 
@@ -136,6 +140,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         default:
             return
         }
+        // 启动时的档位提示也在屏幕正中，会盖住弹窗的按钮，先收掉
+        HUD.shared.hide()
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "安装控制风扇用的后台程序"
