@@ -178,6 +178,14 @@ public struct AppConfig: Codable, Equatable {
 
     public var menuBarShowTemp: Bool = true
     public var menuBarShowRPM: Bool = true
+    /// 读数排成一行还是两行
+    public var menuBarStyle: MenuBarStyle = .inline
+    /// 档位字母单独放一个菜单栏项（和读数分开）
+    public var menuBarSeparateLetter: Bool = false
+    /// 菜单栏里的第二个温度；nil 就只显示当前档位参考的那一个
+    public var menuBarSecondSensor: SensorSelection? = nil
+    /// 温度高时变色（橙 / 红）
+    public var menuBarColorTemps: Bool = false
 
     public var curveMode: CurveMode = .step
     /// 参考温度选「最热的 CPU 核心」时，在读数上加的修正值（°C）。
@@ -197,6 +205,7 @@ public struct AppConfig: Codable, Equatable {
         case hotkeyEnabled, hotkeyMods, hotkeyKey, hotkeyKeyCode
         case alertEnabled, alertDuration, alertCooldownDone
         case menuBarShowTemp, menuBarShowRPM, curveMode, hotCoreOffset, cycleSteps
+        case menuBarStyle, menuBarSeparateLetter, menuBarSecondSensor, menuBarColorTemps
     }
 
     public init(from decoder: Decoder) throws {
@@ -211,6 +220,11 @@ public struct AppConfig: Codable, Equatable {
         alertCooldownDone = try c.decodeIfPresent(String.self, forKey: .alertCooldownDone) ?? d.alertCooldownDone
         menuBarShowTemp = try c.decodeIfPresent(Bool.self, forKey: .menuBarShowTemp) ?? d.menuBarShowTemp
         menuBarShowRPM = try c.decodeIfPresent(Bool.self, forKey: .menuBarShowRPM) ?? d.menuBarShowRPM
+        // 认不出的样式名（比如以后版本写的）按默认处理，不让整份配置读不出来
+        menuBarStyle = (try? c.decodeIfPresent(MenuBarStyle.self, forKey: .menuBarStyle)) ?? d.menuBarStyle
+        menuBarSeparateLetter = try c.decodeIfPresent(Bool.self, forKey: .menuBarSeparateLetter) ?? d.menuBarSeparateLetter
+        menuBarSecondSensor = try c.decodeIfPresent(SensorSelection.self, forKey: .menuBarSecondSensor)
+        menuBarColorTemps = try c.decodeIfPresent(Bool.self, forKey: .menuBarColorTemps) ?? d.menuBarColorTemps
         curveMode = try c.decodeIfPresent(CurveMode.self, forKey: .curveMode) ?? d.curveMode
         hotCoreOffset = try c.decodeIfPresent(Double.self, forKey: .hotCoreOffset) ?? d.hotCoreOffset
         cycleSteps = try c.decodeIfPresent([CycleStep].self, forKey: .cycleSteps) ?? d.cycleSteps

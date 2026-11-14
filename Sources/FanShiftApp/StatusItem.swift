@@ -2,9 +2,24 @@ import AppKit
 import Combine
 import FanShiftCore
 
-/// 菜单栏项：显示「档位字母 温度 转速」，左键切下一档，右键出菜单。
+/// 菜单栏：一项读数（档位字母 + 温度 + 转速），字母也可以分出去单独一项。
+/// 带字母的那一项左键切下一档、右键出菜单；字母分出去之后，读数那一项点了就出菜单。
+///
+/// 两项都是用到才创建、不用就移除，不靠「隐藏」：隐藏或移除一项时，系统会把它记住的位置删掉，
+/// 再出现就被排到最左边（图标多的机器上正好落在刘海底下）。所以位置由我们自己另存一份，每次创建前写回去。
 final class StatusItemController: NSObject, NSMenuDelegate {
-    private let item: NSStatusItem
+    private enum Role: String {
+        case readout, letter
+        var displayName: String { self == .readout ? "读数" : "字母" }
+
+        /// 给系统认的名字。系统按「程序名 + 这个名字」记每个菜单栏项的位置，而且它自己那份记录优先于我们预置的值。
+        /// 不用系统默认的 Item-0、Item-1：那两个名字下的记录一旦坏了（图标怎么预置都被藏起来），没有办法清掉，
+        /// 只能换名字。以后再遇到同样的情况，把这里的后缀改一下就行。
+        var autosaveName: String { self == .readout ? "FanShiftReadout-1" : "FanShiftLetter-1" }
+    }
+
+    private var readout: NSStatusItem?
+    private var letter: NSStatusItem?
     private let model: AppModel
     private let openSettings: () -> Void
     private var cancellables = Set<AnyCancellable>()
@@ -12,91 +27,298 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     init(model: AppModel, openSettings: @escaping () -> Void) {
         self.model = model
         self.openSettings = openSettings
-        // 位置要在创建菜单栏项之前预置好：系统只在创建的那一刻读它
-        Self.seedPositionIfNeeded()
-        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
-        if let button = item.button {
-            button.target = self
-            button.action = #selector(clicked(_:))
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-            button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-        }
         Publishers.CombineLatest3(model.$snapshot, model.$config, model.$helperState)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] snapshot, config, helper in self?.render(snapshot, config, helper) }
             .store(in: &cancellables)
     }
 
-    /// 系统记菜单栏项位置用的键。没有另起名字的菜单栏项，系统按创建顺序叫 Item-0、Item-1…，我们只有一个。
-    private static let positionKey = "NSStatusItem Preferred Position Item-0"
+    // MARK: 位置
 
-    /// 系统把新出现的菜单栏项放在最左边，图标多的话第一次运行就正好落在刘海底下，看不见也拖不动。
-    /// 所以还没有记忆位置时先预置一个：TG Pro 的图标原来在哪就放哪，没有就放在离屏幕右边 300 点的地方。
-    /// 这个值是离屏幕右边缘的距离，用户拖动之后系统会覆盖它。
-    private static func seedPositionIfNeeded() {
-        let key = positionKey
+    /// 系统记菜单栏项位置用的键。值越大越靠左；只在创建那一刻读，之后用户按住 ⌘ 拖动时系统会改写它。
+    private static func systemPositionKey(_ autosaveName: String) -> String {
+        "NSStatusItem Preferred Position \(autosaveName)"
+    }
+
+    /// 我们自己另存的那一份
+    private static func savedPositionKey(_ role: Role) -> String {
+        "MenuBarPosition.\(role.rawValue)"
+    }
+
+    private func item(_ role: Role) -> NSStatusItem? {
+        role == .readout ? readout : letter
+    }
+
+    /// 这一项该放在哪。存过就用存的；没存过：读数沿用系统里已有的位置，再不行放在 TG Pro 图标原来的位置；
+    /// 字母紧挨在读数左边。
+    private func position(for role: Role) -> Double {
         let defaults = UserDefaults.standard
-        guard defaults.object(forKey: key) == nil else { return }
-        let tgPro = UserDefaults(suiteName: "com.tunabellysoftware.tgpro")?
-            .double(forKey: "NSStatusItem Preferred Position Item-0") ?? 0
-        defaults.set(tgPro > 0 ? tgPro : 300, forKey: key)
+        if let saved = defaults.object(forKey: Self.savedPositionKey(role)) as? Double { return saved }
+        let value: Double
+        switch role {
+        case .readout:
+            let existing = defaults.double(forKey: Self.systemPositionKey("Item-0"))
+            let tgPro = UserDefaults(suiteName: "com.tunabellysoftware.tgpro")?
+                .double(forKey: Self.systemPositionKey("Item-0")) ?? 0
+            value = existing > 0 ? existing : (tgPro > 0 ? tgPro : 300)
+        case .letter:
+            value = position(for: .readout) + 1
+        }
+        defaults.set(value, forKey: Self.savedPositionKey(role))
+        return value
     }
 
-    static func title(_ s: Snapshot, _ config: AppConfig, _ helper: HelperState) -> String {
-        var parts: [String] = []
-        // 当前档位想控制风扇，但后台程序不可用：加个警告标记
-        let wantsControl = s.percent != nil
-        if wantsControl, !helper.isReady, helper != .unknown { parts.append("⚠︎") }
-        parts.append(s.letter)
-        if config.menuBarShowTemp, let t = s.temperature { parts.append("\(Int(t.rounded()))°") }
-        if config.menuBarShowRPM, let rpm = s.averageRPM { parts.append("\(Int(rpm.rounded()))") }
-        return parts.joined(separator: " ")
+    /// 把系统里现在的位置（用户可能拖动过）抄进我们自己那一份
+    private func rememberPositions() {
+        let defaults = UserDefaults.standard
+        for role in [Role.readout, .letter] {
+            guard item(role) != nil,
+                  let current = defaults.object(forKey: Self.systemPositionKey(role.autosaveName)) as? Double else { continue }
+            if defaults.object(forKey: Self.savedPositionKey(role)) as? Double != current {
+                defaults.set(current, forKey: Self.savedPositionKey(role))
+            }
+        }
     }
 
-    /// 有刘海的屏幕上，右边图标太多时菜单栏项会被排到刘海底下：它还在，但看不见也点不到。
-    /// 系统不会报告这种遮挡，只能拿菜单栏项的位置和「刘海右侧可用区域」比。
-    private func isObstructedByNotch() -> Bool {
-        guard let window = item.button?.window, let screen = window.screen,
-              let rightOfNotch = screen.auxiliaryTopRightArea else { return false }
-        return window.frame.minX < rightOfNotch.minX - 1
+    private func create(_ role: Role) -> NSStatusItem {
+        // 位置要在创建之前写好：系统只在创建的那一刻读它
+        UserDefaults.standard.set(position(for: role), forKey: Self.systemPositionKey(role.autosaveName))
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        item.autosaveName = role.autosaveName
+        if let button = item.button {
+            button.target = self
+            button.action = #selector(clicked(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            button.font = Self.titleFont
+        }
+        return item
+    }
+
+    private func remove(_ role: Role) {
+        guard let existing = item(role) else { return }
+        // 移除时系统会删掉它的位置，先抄一份
+        rememberPositions()
+        NSStatusBar.system.removeStatusItem(existing)
+        if role == .readout { readout = nil } else { letter = nil }
+    }
+
+    /// 这一项现在是不是看不见：菜单栏放不下时，系统会把排在最左边的项藏起来（有刘海的屏幕上是藏到刘海底下）。
+    /// 系统不会主动通知，只能自己查。
+    private func isHiddenBySystem(_ item: NSStatusItem?) -> Bool {
+        guard let window = item?.button?.window else { return false }
+        if let rightOfNotch = window.screen?.auxiliaryTopRightArea, window.frame.minX < rightOfNotch.minX - 1 { return true }
+        return !window.occlusionState.contains(.visible)
     }
 
     private func diagnostics() -> String {
-        guard let button = item.button, let window = button.window else { return "没有窗口" }
-        let f = window.frame
-        let screen = window.screen
+        func describe(_ role: Role) -> String {
+            guard let item = item(role) else { return "\(role.displayName)：没有" }
+            guard let window = item.button?.window else { return "\(role.displayName)：没有窗口" }
+            let f = window.frame
+            let system = UserDefaults.standard.object(forKey: Self.systemPositionKey(role.autosaveName)).map { "\($0)" } ?? "无"
+            let saved = UserDefaults.standard.object(forKey: Self.savedPositionKey(role)).map { "\($0)" } ?? "无"
+            return "\(role.displayName)：x \(Int(f.minX))–\(Int(f.maxX))，\(window.occlusionState.contains(.visible) ? "看得见" : "看不见")，"
+                + "位置 \(system)，另存 \(saved)"
+        }
+        let screen = readout?.button?.window?.screen ?? letter?.button?.window?.screen ?? NSScreen.main
         let notchRight = screen?.auxiliaryTopRightArea.map { String(Int($0.minX)) } ?? "无"
-        let saved = UserDefaults.standard.object(forKey: Self.positionKey)
-        return "x \(Int(f.minX))–\(Int(f.maxX))，y \(Int(f.minY))，屏幕「\(screen?.localizedName ?? "无")」宽 \(Int(screen?.frame.width ?? 0))，"
-            + "刘海右侧从 x \(notchRight) 起，系统报告\(window.occlusionState.contains(.visible) ? "可见" : "不可见")，"
-            + "记忆位置 \(saved.map { "\($0)" } ?? "无")，窗口类型 \(type(of: window))"
+        return [
+            describe(.readout),
+            describe(.letter),
+            "屏幕宽 \(Int(screen?.frame.width ?? 0))，刘海右侧从 x \(notchRight) 起",
+        ].joined(separator: "；")
+    }
+
+    // MARK: 显示
+
+    private static let titleFont = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+    /// 两行叠起来时用的小字
+    private static let stackedFont = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
+    private static let stackedLineHeight: CGFloat = 10.5
+
+    static func layout(_ s: Snapshot, _ config: AppConfig, _ helper: HelperState) -> MenuBarLayout {
+        // 当前档位想控制风扇，但后台程序不可用：加个警告标记
+        let wantsControl = s.percent != nil
+        let warning = wantsControl && !helper.isReady && helper != .unknown
+        let second = config.menuBarSecondSensor.flatMap { SensorMath.value($0, from: s.readings) }
+        return MenuBar.layout(
+            letter: s.letter,
+            warning: warning,
+            temperature: s.temperature,
+            secondTemperature: second,
+            rpm: s.averageRPM,
+            config: config
+        )
+    }
+
+    /// 菜单栏内容的文字版（调试和截图时用）
+    static func debugText(_ layout: MenuBarLayout) -> String {
+        let lines = layout.lines.map { $0.map(\.text).joined(separator: " ") }.joined(separator: " / ")
+        return "字母项：\(layout.letterItem ?? "无") | 读数项：\([layout.leading, lines.isEmpty ? nil : lines].compactMap { $0 }.joined(separator: " "))"
+    }
+
+    private static func isDark(_ view: NSView?) -> Bool {
+        let match = (view?.effectiveAppearance ?? NSApp.effectiveAppearance)
+            .bestMatch(from: [.aqua, .darkAqua, .vibrantLight, .vibrantDark])
+        return match == .darkAqua || match == .vibrantDark
+    }
+
+    private static func color(_ heat: HeatLevel, dark: Bool) -> NSColor {
+        switch heat {
+        case .normal: return dark ? .white : .black
+        case .warm: return .systemOrange
+        case .hot: return .systemRed
+        }
+    }
+
+    private static func attributed(_ segments: [MenuBarSegment], font: NSFont, dark: Bool) -> NSAttributedString {
+        let out = NSMutableAttributedString()
+        for (i, segment) in segments.enumerated() {
+            if i > 0 { out.append(NSAttributedString(string: " ", attributes: [.font: font])) }
+            out.append(NSAttributedString(string: segment.text, attributes: [
+                .font: font,
+                .foregroundColor: color(segment.heat, dark: dark),
+            ]))
+        }
+        return out
+    }
+
+    /// 两行小字画成一张图。没有变色的字时做成模板图，深浅由系统跟着菜单栏自动处理。
+    static func stackedImage(_ lines: [[MenuBarSegment]], dark: Bool) -> NSImage {
+        let colored = lines.joined().contains { $0.heat != .normal }
+        // 模板图只看透明度，统一用黑色画
+        let strings = lines.map { attributed($0, font: stackedFont, dark: colored ? dark : false) }
+        let width = ceil(strings.map { $0.size().width }.max() ?? 0) + 2
+        let lineHeight = stackedLineHeight
+        let image = NSImage(size: NSSize(width: width, height: 22), flipped: false) { rect in
+            // 几行作为一个整体垂直居中，每行水平居中
+            let total = lineHeight * CGFloat(strings.count)
+            var top = (rect.height + total) / 2
+            for string in strings {
+                let size = string.size()
+                string.draw(at: NSPoint(x: (rect.width - size.width) / 2, y: top - lineHeight + (lineHeight - size.height) / 2))
+                top -= lineHeight
+            }
+            return true
+        }
+        image.isTemplate = !colored
+        return image
     }
 
     private func render(_ s: Snapshot, _ config: AppConfig, _ helper: HelperState) {
-        // 标题变了宽度会变，等布局完成再量位置
+        let layout = Self.layout(s, config, helper)
+        let hotkey = config.hotkeyEnabled ? "（同 \(KeyCodes.display(mods: config.hotkeyMods, key: config.hotkeyKey))）" : ""
+        let cycleTip = "\(s.stepName)。点击切下一档\(hotkey)，右键打开菜单"
+
+        // 读数那一项（先创建它，字母排在它后面创建）
+        if layout.readoutHidden {
+            remove(.readout)
+        } else {
+            if readout == nil { readout = create(.readout) }
+            if let button = readout?.button {
+                let dark = Self.isDark(button)
+                if layout.stacked {
+                    let image = Self.stackedImage(layout.lines, dark: dark)
+                    button.title = layout.leading ?? ""
+                    button.image = image
+                    button.imagePosition = layout.leading == nil ? .imageOnly : .imageTrailing
+                } else {
+                    button.image = nil
+                    button.imagePosition = .noImage
+                    let segments = layout.lines.first ?? []
+                    if segments.contains(where: { $0.heat != .normal }) {
+                        // 有变色的字：整行都要自己指定颜色
+                        let title = NSMutableAttributedString()
+                        if let leading = layout.leading {
+                            title.append(Self.attributed([MenuBarSegment(leading)], font: Self.titleFont, dark: dark))
+                            title.append(NSAttributedString(string: " ", attributes: [.font: Self.titleFont]))
+                        }
+                        title.append(Self.attributed(segments, font: Self.titleFont, dark: dark))
+                        button.attributedTitle = title
+                    } else {
+                        // 没有变色的字：用普通标题，深浅由系统处理
+                        button.title = ([layout.leading].compactMap { $0 } + segments.map(\.text)).joined(separator: " ")
+                    }
+                }
+                button.toolTip = layout.leading == nil ? "\(s.stepName)。点击打开菜单" : cycleTip
+            }
+        }
+
+        // 字母那一项
+        if let text = layout.letterItem {
+            if letter == nil { letter = create(.letter) }
+            letter?.button?.title = text
+            letter?.button?.toolTip = cycleTip
+        } else {
+            remove(.letter)
+        }
+
+        // 内容变了宽度会变，等布局完成再量位置
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             guard let self else { return }
-            let obstructed = self.isObstructedByNotch()
-            if self.model.menuBarObstructed != obstructed { self.model.menuBarObstructed = obstructed }
+            self.rememberPositions()
+            let hidden = self.isHiddenBySystem(self.readout) || self.isHiddenBySystem(self.letter)
+            if self.model.menuBarObstructed != hidden { self.model.menuBarObstructed = hidden }
             let diagnostics = self.diagnostics()
-            if self.model.menuBarDiagnostics != diagnostics { self.model.menuBarDiagnostics = diagnostics }
+            if self.model.menuBarDiagnostics != diagnostics {
+                self.model.menuBarDiagnostics = diagnostics
+                HUD.debugLog("菜单栏 \(diagnostics)")
+            }
         }
-        item.button?.title = Self.title(s, config, helper)
-        let hotkey = config.hotkeyEnabled ? "（同 \(KeyCodes.display(mods: config.hotkeyMods, key: config.hotkeyKey))）" : ""
-        item.button?.toolTip = "\(s.stepName)。点击切下一档\(hotkey)，右键打开菜单"
     }
 
-    @objc private func clicked(_ sender: Any?) {
+    /// 调试用：把菜单栏项现在的样子存成图片（深色底和浅色底各一张），再存一张变色时的样例
+    func writeDebugSnapshots(to dir: URL) {
+        func save(_ image: NSImage, _ name: String) {
+            guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) else { return }
+            try? rep.representation(using: .png, properties: [:])?.write(to: dir.appendingPathComponent(name))
+        }
+        func onBackdrop(dark: Bool, size: NSSize, draw: @escaping (NSRect) -> Void) -> NSImage {
+            NSImage(size: size, flipped: false) { rect in
+                (dark ? NSColor(white: 0.15, alpha: 1) : NSColor(white: 0.9, alpha: 1)).setFill()
+                rect.fill()
+                draw(rect)
+                return true
+            }
+        }
+        // 现在真实的两项
+        for (name, item) in [("readout", readout), ("letter", letter)] {
+            guard let button = item?.button, let rep = button.bitmapImageRepForCachingDisplay(in: button.bounds) else { continue }
+            button.cacheDisplay(in: button.bounds, to: rep)
+            let dark = Self.isDark(button)
+            save(onBackdrop(dark: dark, size: button.bounds.size) { rect in rep.draw(in: rect) }, "menubar-\(name).png")
+        }
+        // 样例：两行、带橙色和红色
+        let sample: [[MenuBarSegment]] = [
+            [MenuBarSegment("7826 RPM")],
+            [MenuBarSegment("96°C", heat: .hot), MenuBarSegment("86°C", heat: .warm), MenuBarSegment("52°C")],
+        ]
+        for dark in [true, false] {
+            let image = Self.stackedImage(sample, dark: dark)
+            save(onBackdrop(dark: dark, size: NSSize(width: image.size.width + 16, height: 24)) { rect in
+                image.draw(in: NSRect(x: 8, y: 1, width: image.size.width, height: image.size.height))
+            }, "menubar-sample-\(dark ? "dark" : "light").png")
+        }
+    }
+
+    // MARK: 点击和菜单
+
+    @objc private func clicked(_ sender: NSStatusBarButton) {
+        let onLetter = letter != nil && sender === letter?.button
+        guard let item = onLetter ? letter : readout else { return }
         let event = NSApp.currentEvent
-        if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
-            showMenu()
+        let secondary = event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true
+        // 字母分出去之后，读数那一项不管左键右键都出菜单
+        let carriesLetter = onLetter || letter == nil
+        if secondary || !carriesLetter {
+            showMenu(on: item)
         } else {
             model.cycle()
         }
     }
 
-    private func showMenu() {
+    private func showMenu(on item: NSStatusItem) {
         let menu = NSMenu()
         menu.delegate = self
         let s = model.snapshot
@@ -130,13 +352,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         quit.target = self
         menu.addItem(quit)
 
-        // 临时挂上菜单再触发一次点击，菜单关闭后摘掉，这样左键仍然是「切下一档」
+        // 临时挂上菜单再触发一次点击，菜单关闭后摘掉，这样左键仍然归我们自己处理
         item.menu = menu
         item.button?.performClick(nil)
     }
 
     func menuDidClose(_ menu: NSMenu) {
-        item.menu = nil
+        readout?.menu = nil
+        letter?.menu = nil
     }
 
     @objc private func selectStep(_ sender: NSMenuItem) {

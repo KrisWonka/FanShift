@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private var debugSignal: DispatchSourceSignal?
     private var debugDump: DispatchSourceSignal?
+    private var debugToggle: DispatchSourceSignal?
 
     private func installDebugHooks() {
         let env = ProcessInfo.processInfo.environment
@@ -64,6 +65,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             dump.resume()
             debugDump = dump
+
+            // SIGHUP：切换「档位字母单独一个图标」并立即生效（测菜单栏项的创建 / 移除，不用点设置窗口）
+            signal(SIGHUP, SIG_IGN)
+            let toggle = DispatchSource.makeSignalSource(signal: SIGHUP, queue: .main)
+            toggle.setEventHandler { [weak self] in
+                guard let self else { return }
+                var config = self.model.config
+                config.menuBarSeparateLetter.toggle()
+                try? self.model.apply(config)
+            }
+            toggle.resume()
+            debugToggle = toggle
         }
         // FANSHIFT_SNAPSHOT_DIR=<目录>：启动几秒后把设置窗口的每一页、屏幕提示渲染成 PNG 存进去
         if let dir = env["FANSHIFT_SNAPSHOT_DIR"], !dir.isEmpty {
@@ -95,8 +108,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             guard i < names.count else {
                 HUD.shared.show("Performance", duration: 1)
                 if let hud = HUD.shared.contentViewForSnapshot { self.snapshot(hud, to: dir.appendingPathComponent("hud.png")) }
-                let title = StatusItemController.title(self.model.snapshot, self.model.config, self.model.helperState)
-                try? Data("\(title)\n".utf8).write(to: dir.appendingPathComponent("menubar-title.txt"))
+                let layout = StatusItemController.layout(self.model.snapshot, self.model.config, self.model.helperState)
+                let text = StatusItemController.debugText(layout) + "\n" + self.model.menuBarDiagnostics
+                try? Data("\(text)\n".utf8).write(to: dir.appendingPathComponent("menubar-title.txt"))
+                self.statusItem?.writeDebugSnapshots(to: dir)
                 try? Data("done\n".utf8).write(to: dir.appendingPathComponent("done.txt"))
                 return
             }

@@ -66,9 +66,22 @@ struct SettingsView: View {
                 }
 
                 Section("菜单栏") {
+                    Picker("样式", selection: $draft.menuBarStyle) {
+                        ForEach(MenuBarStyle.allCases) { style in
+                            Text(style.displayName).tag(style)
+                        }
+                    }
+                    Toggle("档位字母单独放一个图标", isOn: $draft.menuBarSeparateLetter)
                     Toggle("显示温度", isOn: $draft.menuBarShowTemp)
                     Toggle("显示转速", isOn: $draft.menuBarShowRPM)
-                    Text("菜单栏放不下、图标被刘海挡住时，可以关掉这两项，只留档位字母。")
+                    menuBarSecondSensorPicker
+                        .disabled(!draft.menuBarShowTemp)
+                    Toggle(
+                        "温度高时变色（\(Int(MenuBar.warmThreshold))°C 起橙色，\(Int(MenuBar.hotThreshold))°C 起红色）",
+                        isOn: $draft.menuBarColorTemps
+                    )
+                    .disabled(!draft.menuBarShowTemp)
+                    Text("两行样式是小字叠两行，比一行窄。第一个温度是当前档位参考的那个温度。字母单独一个图标时：点字母切下一档，点读数出菜单；两个图标都可以按住 ⌘ 拖动换位置。菜单栏放不下、图标被刘海挡住时，可以关掉温度或转速。")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -120,6 +133,28 @@ struct SettingsView: View {
                 if ProcessInfo.processInfo.environment["FANSHIFT_DEBUG"] == "1" {
                     expandedStepIDs = Set(draft.cycleSteps.filter { $0.type == .temperature }.map(\.id))
                 }
+            }
+        }
+    }
+
+    // MARK: 菜单栏
+
+    @ViewBuilder
+    private var menuBarSecondSensorPicker: some View {
+        let current = draft.menuBarSecondSensor
+        let names = model.snapshot.readings.map(\.name).filter { !SensorMath.isCalibration($0) }
+        Picker("第二个温度", selection: $draft.menuBarSecondSensor) {
+            Text("不显示").tag(SensorSelection?.none)
+            Divider()
+            Text("最热的 CPU 核心").tag(SensorSelection?.some(.cpuMax))
+            Text("芯片各温度点的平均").tag(SensorSelection?.some(.cpuAvg))
+            Text("所有传感器里最热的（含硬盘、电池）").tag(SensorSelection?.some(.anyMax))
+            Divider()
+            if case .named(let n)? = current, !names.contains(n) {
+                Text("\(n)（现在读不到）").tag(current)
+            }
+            ForEach(names, id: \.self) { n in
+                Text(n).tag(SensorSelection?.some(.named(n)))
             }
         }
     }

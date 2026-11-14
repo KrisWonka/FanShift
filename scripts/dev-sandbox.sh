@@ -2,10 +2,13 @@
 # 开发用：起一份隔离的测试副本，和正在用的 FanShift 互不影响。
 #   - 演练模式：只把指令打印到日志，不碰风扇
 #   - 配置和状态放在 ~/Library/Caches/com.kriswonka.fanshift.sandbox/home，不动真实配置（第一次会从真实配置拷一份过来，快捷键改成 ⌃⌥⌘9）
-#   - 换了一个应用标识，所以不会被「已经有一个在运行」拦下
+#   - 换了应用标识，所以不会被「已经有一个在运行」拦下
+#   - 可执行文件也改了名（FanShiftTest）：系统是按「程序名 + 图标名」记菜单栏图标位置的，
+#     和正在用的那份同名的话，两边会共用同一份记录，测试时把记录弄坏，正在用的那份图标就被系统藏起来
 #   - 调试开关打开：带曲线的档位默认展开；kill -USR1 <pid> 相当于按一次快捷键
 # 用法：bash scripts/dev-sandbox.sh        启动（会先重新打包）
 #       bash scripts/dev-sandbox.sh stop   退出并清理
+#       SNAPSHOTS=1 bash scripts/dev-sandbox.sh   启动并把各页和菜单栏项渲染成 PNG（看不到屏幕时用）
 # 日志和进程号在同一个目录下的 log.txt 和 pid，启动后会打印出来
 # 注意：别动测试副本里的「登录时自动启动」开关，它改的是真实的自启项。
 set -euo pipefail
@@ -35,8 +38,9 @@ sleep 1
 mkdir -p "$BOX/home"
 rm -rf "$APP"
 cp -R "$ROOT/build/FanShift.app" "$APP"
+mv "$APP/Contents/MacOS/FanShift" "$APP/Contents/MacOS/FanShiftTest"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $TEST_ID" -c "Set :CFBundleName FanShiftTest" \
-    -c "Set :CFBundleDisplayName FanShiftTest" "$APP/Contents/Info.plist"
+    -c "Set :CFBundleDisplayName FanShiftTest" -c "Set :CFBundleExecutable FanShiftTest" "$APP/Contents/Info.plist"
 codesign --force --sign - "$APP" 2>/dev/null
 
 REAL_CONFIG="$HOME/Library/Application Support/FanShift/config.json"
@@ -50,13 +54,16 @@ json.dump(config, open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False, 
 PY
 fi
 
-OTHERS="$(pgrep -x FanShift || true)"
 : > "$BOX/log.txt"
-open --env "FANSHIFT_HOME=$BOX/home" --env FANSHIFT_DRYRUN=1 --env FANSHIFT_DEBUG=1 \
+# SNAPSHOTS=1：启动几秒后把设置窗口各页、屏幕提示、菜单栏项渲染成 PNG，存到 $BOX/snapshots
+EXTRA=()
+if [ "${SNAPSHOTS:-}" = "1" ]; then
+    rm -rf "$BOX/snapshots"
+    EXTRA=(--env "FANSHIFT_SNAPSHOT_DIR=$BOX/snapshots")
+fi
+open --env "FANSHIFT_HOME=$BOX/home" --env FANSHIFT_DRYRUN=1 --env FANSHIFT_DEBUG=1 ${EXTRA[@]+"${EXTRA[@]}"} \
     --stderr "$BOX/log.txt" --stdout "$BOX/log.txt" "$APP"
 sleep 3
-for pid in $(pgrep -x FanShift); do
-    echo "$OTHERS" | grep -qx "$pid" || echo "$pid" > "$BOX/pid"
-done
+pgrep -x FanShiftTest | head -1 > "$BOX/pid" || true
 open "$APP"   # 再打开一次 = 显示设置窗口
 echo "测试副本已启动，进程号 $(cat "$BOX/pid" 2>/dev/null || echo 未知)，日志 $BOX/log.txt"

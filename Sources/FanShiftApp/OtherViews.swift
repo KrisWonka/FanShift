@@ -162,9 +162,9 @@ struct StatusView: View {
 
                 if model.menuBarObstructed {
                     statusRow(
-                        label: "菜单栏项被刘海挡住了",
+                        label: "菜单栏放不下，\(FanShiftInfo.appName) 的图标现在看不见",
                         ok: false,
-                        detail: "右边的菜单栏图标太多，\(FanShiftInfo.appName) 的那一项被排到了刘海底下。可以在 Settings →「菜单栏」里关掉温度或转速显示，或者减少其他菜单栏图标。快捷键不受影响。"
+                        detail: "右边的菜单栏图标太多，系统把排不下的藏起来了（有刘海的屏幕上是藏到刘海底下）。可以在 Settings →「菜单栏」里换成两行样式、关掉温度或转速，或者减少其他菜单栏图标。快捷键不受影响。"
                     )
                 }
                 if s.tgProRunning {
