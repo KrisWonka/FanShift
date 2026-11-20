@@ -6,6 +6,8 @@ A macOS menu bar app that cycles through named fan profiles with one global hotk
 
 It replaces my earlier project [tgpro-hotkey-mac](https://github.com/KrisWonka/tgpro-hotkey-mac), which did the same job by rewriting TG Pro's rules from a Hammerspoon hotkey.
 
+<p align="center"><img src="docs/images/curve-editor.png" width="640" alt="FanShift settings: a fan curve being edited"></p>
+
 > So far it has been tested on one machine: a MacBook Pro with M5 Pro (Mac17,9) on macOS 27. M1–M4 support is written but untested. See [Compatibility](#compatibility).
 
 ## Features
@@ -22,6 +24,9 @@ It replaces my earlier project [tgpro-hotkey-mac](https://github.com/KrisWonka/t
   - **Cooldown**: full speed until the average chip temperature drops below a target, then hands the fans back.
 - **Curve editor**: drag points on a 5 °C / 5 % grid, right-click a point to delete it, and drag a point into the Stop zone to leave that temperature range to the system. A marker shows where the current temperature sits on the curve.
 - **Sensors tab** that lists every temperature sensor, refreshed every 2 seconds.
+
+  <img src="docs/images/sensors.png" width="480" alt="Sensors tab">
+
 - The last profile is restored after a restart, and FanShift can start at login.
 - The interface is in English, Simplified Chinese, Traditional Chinese or Spanish; switch it at the top of Settings.
 

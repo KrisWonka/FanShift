@@ -6,6 +6,8 @@
 
 它接替我之前的项目 [tgpro-hotkey-mac](https://github.com/KrisWonka/tgpro-hotkey-mac)，那个项目靠 Hammerspoon 的快捷键改写 TG Pro 的规则来做同一件事。
 
+<p align="center"><img src="docs/images/curve-editor.png" width="640" alt="FanShift 设置页：编辑风扇曲线"></p>
+
 > 目前只在一台机器上测过：M5 Pro 的 MacBook Pro（Mac17,9），macOS 27。M1–M4 的支持已经写了，但没测过。见[兼容性](#兼容性)。
 
 ## 功能
@@ -22,6 +24,9 @@
   - **Cooldown**：全速，直到芯片平均温度降到目标值以下，然后把风扇交还系统。
 - **曲线编辑器**：在 5 °C / 5 % 的格子上拖点，右键删除一个点，把点拖进 Stop 区表示这一段温度交给系统。图上有一个标记显示当前温度落在曲线的哪个位置。
 - **Sensors 页**列出所有温度传感器，每 2 秒刷新。
+
+  <img src="docs/images/sensors.png" width="480" alt="传感器页">
+
 - 重启后恢复上次的档位；可以设成登录时自动启动。
 - 界面有英文、简体中文、繁体中文、西班牙文四种，在设置页最上面切换（默认英文）。
 
