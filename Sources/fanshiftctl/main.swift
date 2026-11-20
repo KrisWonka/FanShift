@@ -25,7 +25,7 @@ func modeName(_ m: Int) -> String {
 func printStatus() {
     do {
         let hw = try SMCFans()
-        print("风扇 \(hw.fans.count) 个，模式键 F{n}\(hw.modeSuffix)\(hw.needsUnlock ? "（这代机型接管前要先解锁，暂不支持）" : "")")
+        print("风扇 \(hw.fans.count) 个，模式键 F{n}\(hw.modeSuffix)\(hw.hasForceTestKey ? "，有 Ftst 键（M1–M4，接管前可能要先解锁）" : "")")
         for fan in hw.fans {
             let mode = (try? hw.mode(fan: fan.index)) ?? -1
             print("  风扇\(fan.index)：实际 \(fmt(try? hw.actual(fan: fan.index), 0))  目标 \(fmt(try? hw.target(fan: fan.index), 0))  范围 \(fmt(fan.minRPM, 0))–\(fmt(fan.maxRPM, 0))  模式 \(modeName(mode))")

@@ -6,7 +6,7 @@
 
 它接替我之前的项目 [tgpro-hotkey-mac](https://github.com/KrisWonka/tgpro-hotkey-mac)，那个项目靠 Hammerspoon 的快捷键改写 TG Pro 的规则来做同一件事。
 
-> 目前只在一台机器上测过：M5 Pro 的 MacBook Pro（Mac17,9），macOS 27。见[兼容性](#兼容性)。
+> 目前只在一台机器上测过：M5 Pro 的 MacBook Pro（Mac17,9），macOS 27。M1–M4 的支持已经写了，但没测过。见[兼容性](#兼容性)。
 
 ## 功能
 
@@ -83,8 +83,8 @@ FanShift 是两个进程：
 ## 兼容性
 
 - **M5 Pro 的 MacBook Pro（Mac17,9），macOS 27**：测过。两个风扇，2317–7826 转。
-- **M1–M4**：还不支持。这几代芯片在接管风扇之前多一步解锁，没有实现。FanShift 会认出这种情况并拒绝接管。
-- **其他 Mac**：没测过。
+- **M1–M4**：已经写了，**还没在真机上测过**。这几代芯片接管风扇前多一步：系统温控占着风扇时，FanShift 把 `Ftst` 键写成 1，最多重试 10 秒；交还风扇时再写回 0。[chill](https://github.com/adriangalilea/chill)、[smctl](https://github.com/leaperone/smctl)、[MacFanControl](https://github.com/raminsharifi/MacFanControl)（都是 MIT 许可）用的是同样的步骤。如果你有这几代的 Mac，不管能不能用，在 Issues 里说一声都很有帮助。
+- **Intel Mac**：不支持。
 
 这个包面向 macOS 14 及以上。
 

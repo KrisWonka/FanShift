@@ -33,10 +33,23 @@ public enum FanMode {
 public protocol FanHardware {
     var fans: [FanInfo] { get }
     func mode(fan: Int) throws -> Int
+    /// 固件不接受时抛 SMCError，result = 0x82（系统温控占着风扇时就是这样）
     func setMode(fan: Int, _ mode: Int) throws
     func target(fan: Int) throws -> Double
     func setTarget(fan: Int, rpm: Double) throws
     func actual(fan: Int) throws -> Double
+
+    /// 有没有 Ftst 键（M1–M4 有，M5 没有）。有的话，系统温控占着风扇时要先写 Ftst = 1 才接管得了。
+    var hasForceTestKey: Bool { get }
+    func forceTest() throws -> Int
+    func setForceTest(_ on: Bool) throws
+}
+
+/// 没有 Ftst 键的机型（M5）用这组默认实现
+public extension FanHardware {
+    var hasForceTestKey: Bool { false }
+    func forceTest() throws -> Int { 0 }
+    func setForceTest(_ on: Bool) throws {}
 }
 
 public struct FanSetupError: Error, CustomStringConvertible {
@@ -44,13 +57,14 @@ public struct FanSetupError: Error, CustomStringConvertible {
 }
 
 /// 通过 AppleSMC 读写风扇。
-/// 每个风扇 n 的键：F{n}Ac 实际转速、F{n}Tg 目标转速、F{n}Mn / F{n}Mx 转速范围、模式键。
+/// 每个风扇 n 的键：F{n}Ac 实际转速、F{n}Tg 目标转速、F{n}Mn / F{n}Mx 转速范围、模式键；
+/// M1–M4 另有一个全机共用的 Ftst 键，接管前用来让系统温控放手。
 public final class SMCFans: FanHardware {
     public let fans: [FanInfo]
     /// 模式键后缀：M5 是小写 "md"，M1–M4 是大写 "Md"
     public let modeSuffix: String
-    /// 有 Ftst 键说明是 M1–M4：接管前要先解锁，目前还没实现
-    public let needsUnlock: Bool
+    /// 有 Ftst 键（M1–M4）：系统温控占着风扇时，要先写 Ftst = 1 才接管得了
+    public let hasForceTestKey: Bool
 
     public init() throws {
         guard let count = try? SMC.readDouble("FNum"), count >= 1 else {
@@ -73,7 +87,7 @@ public final class SMCFans: FanHardware {
         } else {
             throw FanSetupError(description: "找不到风扇模式键 F0md / F0Md")
         }
-        needsUnlock = SMC.info("Ftst") != nil
+        hasForceTestKey = SMC.info("Ftst") != nil
     }
 
     public func mode(fan: Int) throws -> Int {
@@ -88,11 +102,32 @@ public final class SMCFans: FanHardware {
         try SMC.readDouble("F\(fan)Tg")
     }
 
+    /// 有的机型写目标转速时固件回一个结果码（chill 在 M4 Pro 上见过 0x87），但稍后照样生效。
+    /// 所以回了结果码时再看半秒：读回来的值变成写进去的值，就算成功。
     public func setTarget(fan: Int, rpm: Double) throws {
-        try SMC.writeFloat("F\(fan)Tg", Float(rpm))
+        let wanted = Double(Float(rpm))
+        do {
+            try SMC.writeFloat("F\(fan)Tg", Float(rpm))
+        } catch let error as SMCError where error.kr == 0 && error.result != 0 && error.result != 0x84 {
+            let deadline = Date().addingTimeInterval(0.5)
+            while Date() < deadline {
+                if let now = try? target(fan: fan), abs(now - wanted) < 1 { return }
+                Thread.sleep(forTimeInterval: 0.02)
+            }
+            throw error
+        }
     }
 
     public func actual(fan: Int) throws -> Double {
         try SMC.readDouble("F\(fan)Ac")
+    }
+
+    public func forceTest() throws -> Int {
+        hasForceTestKey ? Int(try SMC.readDouble("Ftst")) : 0
+    }
+
+    public func setForceTest(_ on: Bool) throws {
+        guard hasForceTestKey else { return }
+        try SMC.writeUInt8("Ftst", on ? 1 : 0)
     }
 }

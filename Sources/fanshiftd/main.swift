@@ -25,13 +25,13 @@ final class HelperService: NSObject, NSXPCListenerDelegate, FanHelperXPC {
 
     override init() {
         super.init()
+        var modeKey = ""
         do {
             let hardware = try SMCFans()
-            if hardware.needsUnlock {
-                problem = "这代机型（M1–M4）接管风扇前要先解锁，目前还不支持"
-            } else {
-                governor = FanGovernor(hardware: hardware, markerPath: FanShiftInfo.daemonMarkerPath)
-            }
+            modeKey = "模式键 F{n}\(hardware.modeSuffix)，" + (hardware.hasForceTestKey ? "有 Ftst（接管前可能要解锁）" : "没有 Ftst")
+            let g = FanGovernor(hardware: hardware, markerPath: FanShiftInfo.daemonMarkerPath)
+            g.onEvent = { log($0) }
+            governor = g
         } catch {
             problem = "\(error)"
         }
@@ -47,7 +47,7 @@ final class HelperService: NSObject, NSXPCListenerDelegate, FanHelperXPC {
 
         if let governor {
             let ranges = governor.fans.map { "\(Int($0.minRPM))–\(Int($0.maxRPM))" }.joined(separator: "，")
-            log("启动：接口版本 \(FanShiftInfo.helperVersion)，风扇 \(governor.fans.count) 个（\(ranges)）")
+            log("启动：接口版本 \(FanShiftInfo.helperVersion)，风扇 \(governor.fans.count) 个（\(ranges)），\(modeKey)")
         } else {
             log("启动，但不能控制风扇：\(problem ?? "原因不明")")
         }
