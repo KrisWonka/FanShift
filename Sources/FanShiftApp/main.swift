@@ -16,7 +16,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             guard let self, self.model.config.alertEnabled else { return }
             HUD.shared.show(text, duration: self.model.config.alertDuration)
         }
-        model.onConfigApplied = { [weak self] in self?.registerHotkey() }
+        model.onConfigApplied = { [weak self] in
+            self?.registerHotkey()
+            self?.rebuildMainMenuIfLanguageChanged()
+        }
         HotkeyManager.shared.onPress = { [weak self] in self?.model.cycle() }
         registerHotkey()
 
@@ -59,7 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let dump = DispatchSource.makeSignalSource(signal: SIGUSR2, queue: .main)
             dump.setEventHandler {
                 for w in NSApp.windows {
-                    let line = "[win] #\(w.windowNumber) \(type(of: w)) 层级 \(w.level.rawValue) 可见 \(w.isVisible) 位置 \(w.frame)\n"
+                    let line = "[win] #\(w.windowNumber) \(type(of: w)) level \(w.level.rawValue) visible \(w.isVisible) frame \(w.frame)\n"
                     FileHandle.standardError.write(Data(line.utf8))
                 }
             }
@@ -142,7 +145,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         if !HotkeyManager.shared.register(keyCode: code, modifiers: KeyCodes.carbonModifiers(config.hotkeyMods)) {
-            HUD.shared.show("快捷键注册失败", duration: 2)
+            HUD.shared.show(L.hotkeyFailed.s, duration: 2)
         }
     }
 
@@ -159,15 +162,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         HUD.shared.hide()
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "安装控制风扇用的后台程序"
-        alert.informativeText = "\(FanShiftInfo.appName) 要靠一个以 root 身份运行的小程序来调风扇转速，装的时候需要输一次密码。不装的话只能显示温度和转速，不能控制风扇。"
-        alert.addButton(withTitle: "现在安装")
-        alert.addButton(withTitle: "以后再说")
+        alert.messageText = L.installAlertTitle.s
+        alert.informativeText = L.installAlertBody(FanShiftInfo.appName).s
+        alert.addButton(withTitle: L.installNow.s)
+        alert.addButton(withTitle: L.later.s)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        if let error = model.installHelper(), error != "已取消" {
+        // 用户在密码框点了取消就不用再弹「安装失败」
+        if let error = model.installHelperResult(), error != .cancelled {
             let failed = NSAlert()
-            failed.messageText = "安装失败"
-            failed.informativeText = error
+            failed.messageText = L.installFailedTitle.s
+            failed.informativeText = error.message
             failed.runModal()
         }
     }
@@ -190,33 +194,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
 
+    /// 主菜单是按哪种语言建的
+    private var mainMenuLanguage: AppLanguage?
+
+    /// 改了界面语言就把主菜单按新语言重建一遍
+    private func rebuildMainMenuIfLanguageChanged() {
+        if mainMenuLanguage != Lang.current { buildMainMenu() }
+    }
+
     /// 没有 Dock 图标的 App 也需要主菜单，否则输入框里 ⌘C / ⌘V / ⌘Q 不起作用
     private func buildMainMenu() {
         let main = NSMenu()
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "退出 \(FanShiftInfo.appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: L.quit(FanShiftInfo.appName).s, action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         main.addItem(appItem)
 
         let editItem = NSMenuItem()
-        let edit = NSMenu(title: "编辑")
-        edit.addItem(withTitle: "撤销", action: Selector(("undo:")), keyEquivalent: "z")
-        edit.addItem(withTitle: "剪切", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        edit.addItem(withTitle: "拷贝", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: "粘贴", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let edit = NSMenu(title: L.menuEdit.s)
+        edit.addItem(withTitle: L.undo.s, action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: L.cut.s, action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: L.copy.s, action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: L.paste.s, action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: L.selectAll.s, action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editItem.submenu = edit
         main.addItem(editItem)
 
         let windowItem = NSMenuItem()
-        let windowMenu = NSMenu(title: "窗口")
-        windowMenu.addItem(withTitle: "关闭", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let windowMenu = NSMenu(title: L.menuWindow.s)
+        windowMenu.addItem(withTitle: L.close.s, action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         windowItem.submenu = windowMenu
         main.addItem(windowItem)
 
         NSApp.mainMenu = main
+        mainMenuLanguage = Lang.current
     }
 }
 

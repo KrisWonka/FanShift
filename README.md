@@ -23,6 +23,7 @@ It replaces my earlier project [tgpro-hotkey-mac](https://github.com/KrisWonka/t
 - **Curve editor**: drag points on a 5 °C / 5 % grid, right-click a point to delete it, and drag a point into the Stop zone to leave that temperature range to the system. A marker shows where the current temperature sits on the curve.
 - **Sensors tab** that lists every temperature sensor, refreshed every 2 seconds.
 - The last profile is restored after a restart, and FanShift can start at login.
+- The interface is in English, Simplified Chinese, Traditional Chinese or Spanish; switch it at the top of Settings.
 
 ## Install
 

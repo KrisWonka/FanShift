@@ -15,11 +15,11 @@ struct HotkeyRecorder: View {
         Button(action: toggle) {
             HStack(spacing: 4) {
                 if recording {
-                    Text("按下要绑定的组合键…")
+                    Text(L.hotkeyRecording.s)
                         .foregroundColor(.secondary)
                         .italic()
                 } else {
-                    Text(key.isEmpty ? "未设置" : KeyCodes.display(mods: mods, key: key))
+                    Text(key.isEmpty ? L.notSet.s : KeyCodes.display(mods: mods, key: key))
                         .font(.system(.body, design: .monospaced))
                 }
                 Spacer()

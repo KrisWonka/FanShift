@@ -128,6 +128,30 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(cfg.cycleSteps[1].sensor, .cpuMax)  // 4 = Highest CPU
     }
 
+    func testLanguageDefaultsToEnglishAndSurvivesSaveAndLoad() throws {
+        // 旧配置没有这个字段：默认英文
+        XCTAssertEqual(try AppConfig.decode(Data(legacyJSON.utf8)).language, .english)
+        // 认不出的值：也按英文，其他字段照常读
+        let odd = try AppConfig.decode(Data(#"{"language": "tlh", "hotkeyKey": "5"}"#.utf8))
+        XCTAssertEqual(odd.language, .english)
+        XCTAssertEqual(odd.hotkeyKey, "5")
+        for lang in AppLanguage.allCases {
+            var cfg = AppConfig()
+            cfg.language = lang
+            XCTAssertEqual(try AppConfig.decode(JSONEncoder().encode(cfg)).language, lang)
+        }
+        XCTAssertEqual(AppLanguage.allCases.map(\.rawValue), ["en", "zh-Hans", "zh-Hant", "es"])
+    }
+
+    func testOldCoreSensorNamesAreMigrated() {
+        // 2026-11 之前核心温度叫「CPU 核心 Tp00」，存在配置里的要换成新名字
+        XCTAssertEqual(SensorSelection(raw: "name:CPU 核心 Tp00"), .named("CPU core Tp00"))
+        XCTAssertEqual(SensorSelection(raw: "name:PMU tdie1"), .named("PMU tdie1"))
+        XCTAssertEqual(SensorMath.coreKey("CPU core Tp0C"), "Tp0C")
+        XCTAssertNil(SensorMath.coreKey("PMU tdie1"))
+        XCTAssertTrue(SensorMath.isCore(SensorMath.coreName("Tp00")))
+    }
+
     func testHotkeyKeyCodeFallsBackToTable() throws {
         let cfg = try AppConfig.decode(Data(legacyJSON.utf8))
         XCTAssertNil(cfg.hotkeyKeyCode)

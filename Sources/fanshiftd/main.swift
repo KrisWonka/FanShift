@@ -28,7 +28,7 @@ final class HelperService: NSObject, NSXPCListenerDelegate, FanHelperXPC {
         var modeKey = ""
         do {
             let hardware = try SMCFans()
-            modeKey = "模式键 F{n}\(hardware.modeSuffix)，" + (hardware.hasForceTestKey ? "有 Ftst（接管前可能要解锁）" : "没有 Ftst")
+            modeKey = "mode key F{n}\(hardware.modeSuffix), " + (hardware.hasForceTestKey ? "has Ftst (may need unlocking)" : "no Ftst")
             let g = FanGovernor(hardware: hardware, markerPath: FanShiftInfo.daemonMarkerPath)
             g.onEvent = { log($0) }
             governor = g
@@ -40,16 +40,16 @@ final class HelperService: NSObject, NSXPCListenerDelegate, FanHelperXPC {
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + 1, repeating: 1)
         timer.setEventHandler { [weak self] in
-            if self?.governor?.checkLease(now: Date()) == true { log("租约到期，风扇已交还系统") }
+            if self?.governor?.checkLease(now: Date()) == true { log("lease expired, fans handed back to the system") }
         }
         timer.resume()
         leaseTimer = timer
 
         if let governor {
             let ranges = governor.fans.map { "\(Int($0.minRPM))–\(Int($0.maxRPM))" }.joined(separator: "，")
-            log("启动：接口版本 \(FanShiftInfo.helperVersion)，风扇 \(governor.fans.count) 个（\(ranges)），\(modeKey)")
+            log("started: interface \(FanShiftInfo.helperVersion), \(governor.fans.count) fans (\(ranges) rpm), \(modeKey)")
         } else {
-            log("启动，但不能控制风扇：\(problem ?? "原因不明")")
+            log("started, but cannot control the fans: \(problem ?? "unknown reason")")
         }
     }
 
@@ -58,7 +58,7 @@ final class HelperService: NSObject, NSXPCListenerDelegate, FanHelperXPC {
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         let uid = connection.effectiveUserIdentifier
         guard uid == 0 || uid == consoleUID() else {
-            log("拒绝了 uid \(uid) 的连接：只接受当前登录用户")
+            log("refused a connection from uid \(uid): only the logged-in user is accepted")
             return false
         }
         let id = ObjectIdentifier(connection)
@@ -75,7 +75,7 @@ final class HelperService: NSObject, NSXPCListenerDelegate, FanHelperXPC {
             self.clients.remove(id)
             if self.clients.isEmpty, self.governor?.holding == true {
                 self.governor?.release()
-                log("App 已断开，风扇已交还系统")
+                log("app disconnected, fans handed back to the system")
             }
         }
     }
@@ -85,7 +85,7 @@ final class HelperService: NSObject, NSXPCListenerDelegate, FanHelperXPC {
         queue.sync {
             if governor?.holding == true {
                 governor?.release()
-                log("\(reason)，风扇已交还系统")
+                log("\(reason), fans handed back to the system")
             }
         }
     }
@@ -107,16 +107,16 @@ final class HelperService: NSObject, NSXPCListenerDelegate, FanHelperXPC {
     func setTargets(_ rpms: [Double], leaseSeconds: Double, reply: @escaping (String?) -> Void) {
         queue.async {
             guard let governor = self.governor else {
-                reply(self.problem ?? "后台程序没有认出风扇")
+                reply(self.problem ?? "the helper did not find any fans")
                 return
             }
             do {
                 let wasHolding = governor.holding
                 try governor.setTargets(rpms, lease: leaseSeconds, now: Date())
-                if !wasHolding { log("已接管风扇，目标 \(rpms.map { Int($0) })") }
+                if !wasHolding { log("took over the fans, targets \(rpms.map { Int($0) })") }
                 reply(nil)
             } catch {
-                log("设置目标转速失败：\(error)")
+                log("setting target speeds failed: \(error)")
                 reply("\(error)")
             }
         }
@@ -126,7 +126,7 @@ final class HelperService: NSObject, NSXPCListenerDelegate, FanHelperXPC {
         queue.async {
             if self.governor?.holding == true {
                 self.governor?.release()
-                log("按 App 的要求，风扇已交还系统")
+                log("fans handed back to the system at the app's request")
             }
             reply(nil)
         }
@@ -134,7 +134,7 @@ final class HelperService: NSObject, NSXPCListenerDelegate, FanHelperXPC {
 }
 
 guard geteuid() == 0 else {
-    log("fanshiftd 必须以 root 身份由 launchd 启动")
+    log("fanshiftd must run as root, started by launchd")
     exit(1)
 }
 
@@ -146,7 +146,7 @@ for sig in [SIGTERM, SIGINT, SIGHUP] {
     signal(sig, SIG_IGN)
     let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
     source.setEventHandler {
-        service.releaseNow(reason: "收到退出信号")
+        service.releaseNow(reason: "received a quit signal")
         exit(0)
     }
     source.resume()

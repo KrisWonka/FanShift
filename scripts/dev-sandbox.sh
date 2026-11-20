@@ -9,6 +9,7 @@
 # 用法：bash scripts/dev-sandbox.sh        启动（会先重新打包）
 #       bash scripts/dev-sandbox.sh stop   退出并清理
 #       SNAPSHOTS=1 bash scripts/dev-sandbox.sh   启动并把各页和菜单栏项渲染成 PNG
+#       LANG_CODE=es bash scripts/dev-sandbox.sh   用指定的界面语言启动（en / zh-Hans / zh-Hant / es，会写进测试副本的配置）
 # 日志和进程号在同一个目录下的 log.txt 和 pid，启动后会打印出来
 # 注意：别动测试副本里的「登录时自动启动」开关，它改的是真实的自启项。
 set -euo pipefail
@@ -54,6 +55,14 @@ json.dump(config, open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False, 
 PY
 fi
 
+if [ -n "${LANG_CODE:-}" ] && [ -f "$BOX/home/config.json" ]; then
+    /usr/bin/python3 - "$BOX/home/config.json" "$LANG_CODE" <<'PY'
+import json, sys
+config = json.load(open(sys.argv[1], encoding="utf-8"))
+config["language"] = sys.argv[2]
+json.dump(config, open(sys.argv[1], "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PY
+fi
 : > "$BOX/log.txt"
 # SNAPSHOTS=1：启动几秒后把设置窗口各页、屏幕提示、菜单栏项渲染成 PNG，存到 $BOX/snapshots
 EXTRA=()

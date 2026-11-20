@@ -102,6 +102,8 @@ FanShift 默认照这四条来。另外保留了「连直线」的取值方式�
 ## 状态和配置
 
 - 配置：`~/Library/Application Support/FanShift/config.json`。第一次启动时如果没有，就从旧版的 `~/.hammerspoon/tgpro-hotkey-config.json` 搬过来（旧文件不动）。旧版的传感器编号 4（Highest CPU）对应「最热的 CPU 核心」，0（Any Sensor）对应「所有传感器里最热的」。
+- 界面语言：配置里的 `language`（`en` / `zh-Hans` / `zh-Hant` / `es`），默认英文，认不出的值也按英文。界面文字都在 `Sources/FanShiftApp/L10n.swift`，每句话四种语言写在一起（`Tr`），漏填一种编译不过；没用系统的 .lproj，因为要在 App 里直接切换、不跟系统语言走、不用重启。后台程序、命令行工具和日志只用英文（会出现在别人贴的问题报告里）。
+- 核心温度的传感器名是 `CPU core Tp00` 这种固定写法（会存进配置），界面上再按语言翻译；旧配置里的 `CPU 核心 Tp00` 读取时自动换成新写法。
 - 当前档位：`state.json`，重启后恢复。Full Blast 到点、Cooldown 完成后，档位没变但实际已交还系统，菜单栏字母显示 `A`。
 - 开发时用环境变量：`FANSHIFT_HOME` 换配置目录；`FANSHIFT_DRYRUN=1` 只打印指令不碰风扇；`FANSHIFT_DEBUG=1` 时 `kill -USR1` 相当于按一次快捷键；`FANSHIFT_SNAPSHOT_DIR` 把设置窗口各页存成图片。
 

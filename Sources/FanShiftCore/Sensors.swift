@@ -114,7 +114,8 @@ public enum SensorSelection: Hashable, Codable {
         case "cpuAvg": self = .cpuAvg
         case "anyMax": self = .anyMax
         default:
-            self = raw.hasPrefix("name:") ? .named(String(raw.dropFirst(5))) : .cpuMax
+            guard raw.hasPrefix("name:") else { self = .cpuMax; return }
+            self = .named(SensorMath.migratedName(String(raw.dropFirst(5))))
         }
     }
 
@@ -127,11 +128,12 @@ public enum SensorSelection: Hashable, Codable {
         }
     }
 
+    /// 英文名，命令行工具和日志用；界面上的名字在 App 里按语言翻译
     public var displayName: String {
         switch self {
-        case .cpuMax: return "最热的 CPU 核心"
-        case .cpuAvg: return "CPU 平均"
-        case .anyMax: return "所有传感器里最热的"
+        case .cpuMax: return "Hottest CPU core"
+        case .cpuAvg: return "Chip average"
+        case .anyMax: return "Hottest sensor"
         case .named(let n): return n
         }
     }
@@ -143,11 +145,24 @@ public enum SensorMath {
         name.lowercased().contains("tcal")
     }
 
-    private static let corePrefix = "CPU 核心 "
+    /// 核心温度读数的名字 = 这个前缀 + SMC 键名。名字会存进配置（参考温度选了某个具体传感器时），
+    /// 所以不能跟着界面语言变；界面上显示时再翻译。
+    private static let corePrefix = "CPU core "
+    /// 2026-11 之前的前缀，旧配置里可能存着
+    private static let legacyCorePrefix = "CPU 核心 "
 
-    /// SMC 核心温度键在界面上显示的名字
     public static func coreName(_ smcKey: String) -> String {
         corePrefix + smcKey
+    }
+
+    /// 核心温度读数对应的 SMC 键名（比如 "Tp00"）；不是核心温度就返回 nil
+    public static func coreKey(_ name: String) -> String? {
+        name.hasPrefix(corePrefix) ? String(name.dropFirst(corePrefix.count)) : nil
+    }
+
+    /// 旧配置里的传感器名换成现在的写法
+    public static func migratedName(_ name: String) -> String {
+        name.hasPrefix(legacyCorePrefix) ? corePrefix + name.dropFirst(legacyCorePrefix.count) : name
     }
 
     /// CPU 核心温度（来自 SMC）

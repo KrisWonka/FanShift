@@ -15,9 +15,9 @@ func fmt(_ v: Double?, _ digits: Int = 1) -> String {
 
 func modeName(_ m: Int) -> String {
     switch m {
-    case FanMode.auto: return "0 系统自动"
-    case FanMode.forced: return "1 被软件接管"
-    case FanMode.system: return "3 系统温控"
+    case FanMode.auto: return "0 auto"
+    case FanMode.forced: return "1 forced"
+    case FanMode.system: return "3 system"
     default: return "\(m)"
     }
 }
@@ -25,25 +25,25 @@ func modeName(_ m: Int) -> String {
 func printStatus() {
     do {
         let hw = try SMCFans()
-        print("风扇 \(hw.fans.count) 个，模式键 F{n}\(hw.modeSuffix)\(hw.hasForceTestKey ? "，有 Ftst 键（M1–M4，接管前可能要先解锁）" : "")")
+        print("\(hw.fans.count) fans, mode key F{n}\(hw.modeSuffix)\(hw.hasForceTestKey ? ", has Ftst (M1–M4: may need unlocking before takeover)" : "")")
         for fan in hw.fans {
             let mode = (try? hw.mode(fan: fan.index)) ?? -1
-            print("  风扇\(fan.index)：实际 \(fmt(try? hw.actual(fan: fan.index), 0))  目标 \(fmt(try? hw.target(fan: fan.index), 0))  范围 \(fmt(fan.minRPM, 0))–\(fmt(fan.maxRPM, 0))  模式 \(modeName(mode))")
+            print("  fan \(fan.index): actual \(fmt(try? hw.actual(fan: fan.index), 0))  target \(fmt(try? hw.target(fan: fan.index), 0))  range \(fmt(fan.minRPM, 0))–\(fmt(fan.maxRPM, 0))  mode \(modeName(mode))")
         }
     } catch {
-        print("风扇读取失败：\(error)")
+        print("could not read fans: \(error)")
     }
     let readings = TemperatureSensors().readAll()
-    print("温度传感器 \(readings.count) 个")
-    print("  最热的 CPU 核心 \(fmt(SensorMath.value(.cpuMax, from: readings)))°C")
-    print("  芯片各温度点的平均 \(fmt(SensorMath.value(.cpuAvg, from: readings)))°C")
-    print("  所有传感器里最热的 \(fmt(SensorMath.value(.anyMax, from: readings)))°C")
+    print("\(readings.count) temperature sensors")
+    print("  hottest CPU core \(fmt(SensorMath.value(.cpuMax, from: readings)))°C")
+    print("  chip average     \(fmt(SensorMath.value(.cpuAvg, from: readings)))°C")
+    print("  hottest sensor   \(fmt(SensorMath.value(.anyMax, from: readings)))°C")
 }
 
 func printSensors() {
     for r in TemperatureSensors().readAll() {
         var tag = ""
-        if SensorMath.isCalibration(r.name) { tag = "（校准读数，不参与计算）" } else if SensorMath.isCore(r.name) { tag = "核心" } else if SensorMath.isDie(r.name) { tag = "芯片" }
+        if SensorMath.isCalibration(r.name) { tag = "(calibration constant, not used)" } else if SensorMath.isCore(r.name) { tag = "core" } else if SensorMath.isDie(r.name) { tag = "die" }
         print("\(r.name.padding(toLength: 22, withPad: " ", startingAt: 0)) \(String(format: "%6.2f", r.value))  \(tag)")
     }
 }
@@ -52,16 +52,16 @@ func printSensors() {
 /// 用来在切换前对比新程序和现在的控制软件差多少。输出是 CSV。
 func shadow(stepName: String?, seconds: Int) {
     let (config, source) = AppConfig.load()
-    guard let hw = try? SMCFans() else { fail("读不到风扇") }
+    guard let hw = try? SMCFans() else { fail("could not read fans") }
     let steps = config.cycleSteps.filter { $0.type == .temperature }
     guard let step = stepName.flatMap({ n in steps.first { $0.effectiveName.lowercased() == n.lowercased() } }) ?? steps.first else {
-        fail("配置里没有温度曲线档位")
+        fail("no Temperature profile in the configuration")
     }
     var cfg = config
     cfg.cycleSteps = [step]
     let controller = FanController(config: cfg, fans: hw.fans)
     let sensors = TemperatureSensors()
-    FileHandle.standardError.write(Data("档位 \(step.effectiveName)，配置来源 \(source)，采样 \(seconds) 秒\n".utf8))
+    FileHandle.standardError.write(Data("profile \(step.effectiveName), config from \(source), sampling for \(seconds) s\n".utf8))
     print("t,cpuMax,cpuAvg,anyMax,ours_percent,ours_rpm,actual_target,actual_percent,actual_rpm")
     let start = Date()
     while Date().timeIntervalSince(start) < Double(seconds) {
@@ -89,10 +89,10 @@ func shadow(stepName: String?, seconds: Int) {
 
 /// 标定用：把 SMC 里所有温度类的键和风扇当前目标转速一起记下来（CSV）
 func calib(seconds: Int) {
-    guard let hw = try? SMCFans() else { fail("读不到风扇") }
+    guard let hw = try? SMCFans() else { fail("could not read fans") }
     let keys = SMC.allKeys().filter { $0.hasPrefix("T") && SMC.info($0)?.type == "flt " }
     let sensors = TemperatureSensors()
-    FileHandle.standardError.write(Data("SMC 温度类的键 \(keys.count) 个，采样 \(seconds) 秒\n".utf8))
+    FileHandle.standardError.write(Data("\(keys.count) SMC temperature keys, sampling for \(seconds) s\n".utf8))
     print((["t", "target", "hidMax"] + keys).joined(separator: ","))
     let start = Date()
     while Date().timeIntervalSince(start) < Double(seconds) {
@@ -111,17 +111,17 @@ func helper(_ args: [String]) {
     connection.resume()
     let done = DispatchSemaphore(value: 0)
     guard let proxy = connection.remoteObjectProxyWithErrorHandler({ error in
-        print("连不上后台程序：\(error.localizedDescription)")
+        print("cannot reach the helper: \(error.localizedDescription)")
         done.signal()
-    }) as? FanHelperXPC else { fail("接口不对") }
+    }) as? FanHelperXPC else { fail("unexpected helper interface") }
 
     switch args.first ?? "info" {
     case "info":
         proxy.info { json in print(json); done.signal() }
     case "release":
-        proxy.releaseFans { err in print(err ?? "已交还系统"); done.signal() }
+        proxy.releaseFans { err in print(err ?? "fans handed back to the system"); done.signal() }
     case "set":
-        guard args.count >= 2, let rpm = Double(args[1]) else { fail("用法：fanshiftctl helper set <转速> [保持秒数]") }
+        guard args.count >= 2, let rpm = Double(args[1]) else { fail("usage: fanshiftctl helper set <rpm> [seconds]") }
         let hold = args.count >= 3 ? (Double(args[2]) ?? 10) : 10
         let fanCount = (try? SMCFans().fans.count) ?? 2
         let until = Date().addingTimeInterval(hold)
@@ -129,16 +129,16 @@ func helper(_ args: [String]) {
         while Date() < until {
             let sent = DispatchSemaphore(value: 0)
             proxy.setTargets(Array(repeating: rpm, count: fanCount), leaseSeconds: 6) { err in
-                if let err { print("设置失败：\(err)") }
+                if let err { print("failed: \(err)") }
                 sent.signal()
             }
             _ = sent.wait(timeout: .now() + 3)
             printStatus()
             Thread.sleep(forTimeInterval: 2)
         }
-        proxy.releaseFans { err in print(err ?? "已交还系统"); done.signal() }
+        proxy.releaseFans { err in print(err ?? "fans handed back to the system"); done.signal() }
     default:
-        fail("用法：fanshiftctl helper [info | release | set <转速> [保持秒数]]")
+        fail("usage: fanshiftctl helper [info | release | set <rpm> [seconds]]")
     }
     _ = done.wait(timeout: .now() + 5)
 }
@@ -160,12 +160,12 @@ case "helper":
     helper(Array(args.dropFirst()))
 default:
     print("""
-    用法：
-      fanshiftctl status                   风扇和温度的当前状态
-      fanshiftctl sensors                  列出所有温度传感器
-      fanshiftctl shadow [档位名] [秒数]   只算不写，和风扇实际目标转速并排对比（CSV）
-      fanshiftctl helper info              后台程序的信息
-      fanshiftctl helper release           让后台程序把风扇交还系统
-      fanshiftctl helper set <转速> [秒]   让后台程序把风扇设到指定转速，保持若干秒后交还
+    usage:
+      fanshiftctl status                       fans and temperatures right now
+      fanshiftctl sensors                      list every temperature sensor
+      fanshiftctl shadow [profile] [seconds]   compute targets without writing them, next to the real fan targets (CSV)
+      fanshiftctl helper info                  what the helper reports
+      fanshiftctl helper release               ask the helper to hand the fans back to the system
+      fanshiftctl helper set <rpm> [seconds]   ask the helper to hold the fans at a speed, then hand them back
     """)
 }

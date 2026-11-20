@@ -65,7 +65,7 @@ private final class FakeLegacyFans: FanHardware {
     func setMode(fan: Int, _ mode: Int) throws {
         if mode == FanMode.forced, modes[fan] != FanMode.forced {
             guard let since = ftstSince, let delay = unlockDelay, clock.now.timeIntervalSince(since) >= delay else {
-                throw SMCError(op: "写", key: "F\(fan)Md", kr: 0, result: 0x82)
+                throw SMCError(op: "write", key: "F\(fan)Md", kr: 0, result: 0x82)
             }
         }
         modes[fan] = mode
@@ -224,7 +224,7 @@ final class GovernorTests: XCTestCase {
             init(clock: FakeClock) { self.clock = clock; busyUntil = clock.now.addingTimeInterval(0.45) }
             func mode(fan: Int) throws -> Int { mode }
             func setMode(fan: Int, _ m: Int) throws {
-                if m == FanMode.forced, clock.now < busyUntil { throw SMCError(op: "写", key: "F0md", kr: 0, result: 0x82) }
+                if m == FanMode.forced, clock.now < busyUntil { throw SMCError(op: "write", key: "F0md", kr: 0, result: 0x82) }
                 mode = m
             }
             func target(fan: Int) throws -> Double { 0 }
@@ -257,7 +257,7 @@ final class GovernorTests: XCTestCase {
         final class NoRootFans: FanHardware {
             let fans = [FanInfo(index: 0, minRPM: 2317, maxRPM: 7826)]
             func mode(fan: Int) throws -> Int { 3 }
-            func setMode(fan: Int, _ m: Int) throws { throw SMCError(op: "写", key: "F0md", kr: Int32(bitPattern: 0xe000_02c1), result: 0) }
+            func setMode(fan: Int, _ m: Int) throws { throw SMCError(op: "write", key: "F0md", kr: Int32(bitPattern: 0xe000_02c1), result: 0) }
             func target(fan: Int) throws -> Double { 0 }
             func setTarget(fan: Int, rpm: Double) throws {}
             func actual(fan: Int) throws -> Double { 0 }
@@ -283,8 +283,8 @@ final class GovernorTests: XCTestCase {
         XCTAssertEqual(hw.ftst, 1)  // 接管期间保持 1
         XCTAssertTrue(g.holding)
         XCTAssertEqual(clock.slept, 3.5, accuracy: 0.11)
-        XCTAssertTrue(events.contains { $0.contains("写 Ftst = 1") })
-        XCTAssertTrue(events.contains { $0.contains("解锁后接管") })
+        XCTAssertTrue(events.contains { $0.contains("writing Ftst = 1") })
+        XCTAssertTrue(events.contains { $0.contains("after Ftst unlock") })
     }
 
     func testLegacyReleaseClearsFtst() throws {

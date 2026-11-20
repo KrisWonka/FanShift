@@ -17,89 +17,97 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             Form {
-                Section("开机自启") {
-                    Toggle("登录时自动启动 \(FanShiftInfo.appName)", isOn: Binding(
+                Section(L.sectionLanguage.s) {
+                    languagePicker
+                }
+
+                Section(L.sectionStartup.s) {
+                    Toggle(L.launchAtLogin(FanShiftInfo.appName).s, isOn: Binding(
                         get: { autostart },
                         set: { v in autostart = v; Autostart.setEnabled(v) }
                     ))
                 }
 
-                Section("快捷键") {
-                    Toggle("启用全局快捷键", isOn: $draft.hotkeyEnabled)
+                Section(L.sectionHotkey.s) {
+                    Toggle(L.hotkeyEnabled.s, isOn: $draft.hotkeyEnabled)
                     HStack {
-                        Text("组合键")
+                        Text(L.hotkeyCombo.s)
                         HotkeyRecorder(mods: $draft.hotkeyMods, key: $draft.hotkeyKey, keyCode: $draft.hotkeyKeyCode)
                     }
                     .disabled(!draft.hotkeyEnabled)
-                    Text("点上方按钮 → 按一下组合键即可绑定（ESC 取消）。修饰键 ⌃⌥⇧⌘ 至少要有一个。")
+                    Text(L.hotkeyHelp.s)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
-                Section("循环档位（按 \(KeyCodes.display(mods: draft.hotkeyMods, key: draft.hotkeyKey)) 在档位间循环）") {
+                Section(L.sectionProfiles(KeyCodes.display(mods: draft.hotkeyMods, key: draft.hotkeyKey)).s) {
                     cycleStepsList
                     addStepMenu
-                    Text("点档位左侧 ▶ 三角展开改名 / 调参数。Cooldown 档：全速直到 CPU 平均温度降到目标值后自动交还系统。Full Blast 档：可设 N 分钟后自动交还系统。")
+                    Text(L.profilesHelp.s)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
-                Section("曲线") {
-                    Picker("两个点之间怎么取值", selection: $draft.curveMode) {
+                Section(L.sectionCurves.s) {
+                    Picker(L.curveModePicker.s, selection: $draft.curveMode) {
                         ForEach(CurveMode.allCases) { mode in
-                            Text(mode.displayName).tag(mode)
+                            Text(L.curveMode(mode).s).tag(mode)
                         }
                     }
-                    Text("阶梯：温度超过某个点就用那个点的转速，换转速时用大约 10 秒缓缓过渡。连直线：两个点之间按比例变化。")
+                    Text(L.curveModeHelp.s)
                         .font(.caption)
                         .foregroundColor(.secondary)
                     HStack {
-                        Text("最热核心的温度修正")
+                        Text(L.hotCoreOffset.s)
                         Slider(value: $draft.hotCoreOffset, in: -5...5, step: 0.5)
                         Text(String(format: "%+.1f °C", draft.hotCoreOffset))
                             .frame(width: 70, alignment: .trailing)
                             .font(.system(.body, design: .monospaced))
                     }
-                    Text("参考温度选「最热的 CPU 核心」时，先在读数上加这个值再去查曲线。实测 TG Pro 的读数比最热核心低约 2°C，默认 −2 才和原来的曲线手感一致；0 就是原始读数。菜单栏显示的始终是原始读数。")
+                    Text(L.hotCoreOffsetHelp.s)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
-                Section("菜单栏") {
-                    Picker("样式", selection: $draft.menuBarStyle) {
+                Section(L.sectionMenuBar.s) {
+                    Picker(L.menuBarStyle.s, selection: $draft.menuBarStyle) {
                         ForEach(MenuBarStyle.allCases) { style in
-                            Text(style.displayName).tag(style)
+                            Text(L.menuBarStyle(style).s).tag(style)
                         }
                     }
-                    Toggle("档位字母单独放一个图标", isOn: $draft.menuBarSeparateLetter)
-                    Toggle("显示温度", isOn: $draft.menuBarShowTemp)
-                    Toggle("显示转速", isOn: $draft.menuBarShowRPM)
+                    Toggle(L.separateLetter.s, isOn: $draft.menuBarSeparateLetter)
+                    Toggle(L.showTemp.s, isOn: $draft.menuBarShowTemp)
+                    Toggle(L.showRPM.s, isOn: $draft.menuBarShowRPM)
                     menuBarSecondSensorPicker
                         .disabled(!draft.menuBarShowTemp)
                     Toggle(
-                        "温度高时变色（\(Int(MenuBar.warmThreshold))°C 起橙色，\(Int(MenuBar.hotThreshold))°C 起红色）",
+                        L.colorTemps(warm: Int(MenuBar.warmThreshold), hot: Int(MenuBar.hotThreshold)).s,
                         isOn: $draft.menuBarColorTemps
                     )
                     .disabled(!draft.menuBarShowTemp)
-                    Text("两行样式是小字叠两行，比一行窄。第一个温度是当前档位参考的那个温度。字母单独一个图标时：点字母切下一档，点读数出菜单；两个图标都可以按住 ⌘ 拖动换位置。菜单栏放不下、图标被刘海挡住时，可以关掉温度或转速。")
+                    Text(L.menuBarHelp.s)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
-                Section("提示") {
-                    Toggle("启用屏幕中央提示", isOn: $draft.alertEnabled)
+                Section(L.sectionAlert.s) {
+                    Toggle(L.alertEnabled.s, isOn: $draft.alertEnabled)
                     HStack {
-                        Text("Cooldown 结束文字")
-                            .frame(width: 130, alignment: .leading)
-                        TextField("Cooldown done ✓", text: $draft.alertCooldownDone)
+                        Text(L.cooldownText.s)
+                            .frame(minWidth: 130, alignment: .leading)
+                            .fixedSize(horizontal: true, vertical: false)
+                        // 占位文字用默认的提示文字；标题留空，理由同档位的「名字」输入框
+                        TextField("", text: $draft.alertCooldownDone, prompt: Text(AppConfig().alertCooldownDone))
+                            .labelsHidden()
                             .textFieldStyle(.roundedBorder)
                     }
                     .disabled(!draft.alertEnabled)
                     HStack {
-                        Text("显示时长")
-                            .frame(width: 130, alignment: .leading)
+                        Text(L.alertDuration.s)
+                            .frame(minWidth: 130, alignment: .leading)
+                            .fixedSize(horizontal: true, vertical: false)
                         Slider(value: $draft.alertDuration, in: 0.3...3.0, step: 0.1)
-                        Text("\(String(format: "%.1f", draft.alertDuration)) 秒")
+                        Text(L.seconds(String(format: "%.1f", draft.alertDuration)).s)
                             .frame(width: 60, alignment: .trailing)
                             .font(.system(.body, design: .monospaced))
                     }
@@ -113,12 +121,12 @@ struct SettingsView: View {
                 statusBadge
                 Spacer()
                 if dirty {
-                    Text("有未保存的修改")
+                    Text(L.unsavedChanges.s)
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Button("放弃修改") { draft = model.config }
+                    Button(L.discard.s) { draft = model.config }
                 }
-                Button("保存并生效") { save() }
+                Button(L.saveAndApply.s) { save() }
                     .keyboardShortcut("s", modifiers: .command)
                     .disabled(!dirty)
             }
@@ -137,24 +145,50 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: 语言
+
+    /// 改了马上生效，不等「保存并生效」：只把语言这一项写进当前生效的配置，
+    /// 同时同步到草稿，这样不会冒出「有未保存的修改」，草稿里别的没保存的改动也还在。
+    private var languagePicker: some View {
+        Picker(selection: Binding(
+            get: { model.config.language },
+            set: { lang in
+                var c = model.config
+                c.language = lang
+                do {
+                    try model.apply(c)
+                    draft.language = lang
+                } catch {
+                    saveStatus = .error(error.localizedDescription)
+                }
+            }
+        )) {
+            ForEach(AppLanguage.allCases) { lang in
+                Text(lang.nativeName).tag(lang)
+            }
+        } label: {
+            Label(L.language.s, systemImage: "globe")
+        }
+    }
+
     // MARK: 菜单栏
 
     @ViewBuilder
     private var menuBarSecondSensorPicker: some View {
         let current = draft.menuBarSecondSensor
         let names = model.snapshot.readings.map(\.name).filter { !SensorMath.isCalibration($0) }
-        Picker("第二个温度", selection: $draft.menuBarSecondSensor) {
-            Text("不显示").tag(SensorSelection?.none)
+        Picker(L.secondTemp.s, selection: $draft.menuBarSecondSensor) {
+            Text(L.none.s).tag(SensorSelection?.none)
             Divider()
-            Text("最热的 CPU 核心").tag(SensorSelection?.some(.cpuMax))
-            Text("芯片各温度点的平均").tag(SensorSelection?.some(.cpuAvg))
-            Text("所有传感器里最热的（含硬盘、电池）").tag(SensorSelection?.some(.anyMax))
+            Text(L.sensorHottestCore.s).tag(SensorSelection?.some(.cpuMax))
+            Text(L.sensorChipAverage.s).tag(SensorSelection?.some(.cpuAvg))
+            Text(L.sensorHottestAny.s).tag(SensorSelection?.some(.anyMax))
             Divider()
             if case .named(let n)? = current, !names.contains(n) {
-                Text("\(n)（现在读不到）").tag(current)
+                Text(L.unavailable(L.sensorName(n)).s).tag(current)
             }
             ForEach(names, id: \.self) { n in
-                Text(n).tag(SensorSelection?.some(.named(n)))
+                Text(L.sensorName(n)).tag(SensorSelection?.some(.named(n)))
             }
         }
     }
@@ -164,7 +198,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var cycleStepsList: some View {
         if draft.cycleSteps.isEmpty {
-            Text("（空 — 至少加一档才能使用快捷键）")
+            Text(L.noProfiles.s)
                 .font(.caption)
                 .foregroundColor(.secondary)
         } else {
@@ -220,14 +254,14 @@ struct SettingsView: View {
             } label: { Image(systemName: "arrow.up") }
                 .buttonStyle(.borderless)
                 .disabled(idx == 0)
-                .help("上移")
+                .help(L.moveUp.s)
 
             Button {
                 draft.cycleSteps.swapAt(idx, idx + 1)
             } label: { Image(systemName: "arrow.down") }
                 .buttonStyle(.borderless)
                 .disabled(idx == draft.cycleSteps.count - 1)
-                .help("下移")
+                .help(L.moveDown.s)
 
             Button {
                 let removed = draft.cycleSteps.remove(at: idx)
@@ -237,7 +271,7 @@ struct SettingsView: View {
                     .foregroundColor(.orange)
             }
             .buttonStyle(.borderless)
-            .help("删除")
+            .help(L.delete.s)
         }
     }
 
@@ -245,8 +279,9 @@ struct SettingsView: View {
     private func stepDetails(step: Binding<CycleStep>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("名字")
-                    .frame(width: 80, alignment: .leading)
+                Text(L.name.s)
+                    .frame(minWidth: 80, alignment: .leading)
+                    .fixedSize(horizontal: true, vertical: false)
                 // 标题留空、类型名放进占位文字：不然表单会把标题当成输入框左边的标签再画一遍
                 TextField("", text: step.name, prompt: Text(step.wrappedValue.type.displayName))
                     .labelsHidden()
@@ -255,14 +290,15 @@ struct SettingsView: View {
 
             switch step.wrappedValue.type {
             case .auto:
-                Text("Auto 档不接管风扇，完全交给系统自己控制（空闲时风扇可以停转）")
+                Text(L.autoHelp.s)
                     .font(.caption)
                     .foregroundColor(.secondary)
             case .fullBlast:
-                Toggle("到点自动交还系统", isOn: step.autoRevertEnabled)
+                Toggle(L.autoRevert.s, isOn: step.autoRevertEnabled)
                 HStack {
-                    Text("倒计时")
-                        .frame(width: 80, alignment: .leading)
+                    Text(L.timer.s)
+                        .frame(minWidth: 80, alignment: .leading)
+                        .fixedSize(horizontal: true, vertical: false)
                     Slider(
                         value: Binding(
                             get: { Double(step.wrappedValue.autoRevertSec) / 60.0 },
@@ -270,25 +306,27 @@ struct SettingsView: View {
                         ),
                         in: 1...60, step: 1
                     )
-                    Text("\(step.wrappedValue.autoRevertSec / 60) 分钟")
+                    Text(L.minutes(step.wrappedValue.autoRevertSec / 60).s)
                         .frame(width: 60, alignment: .trailing)
                         .font(.system(.body, design: .monospaced))
                 }
                 .disabled(!step.wrappedValue.autoRevertEnabled)
             case .cooldown:
                 HStack {
-                    Text("目标温度")
-                        .frame(width: 80, alignment: .leading)
+                    Text(L.targetTemp.s)
+                        .frame(minWidth: 80, alignment: .leading)
+                        .fixedSize(horizontal: true, vertical: false)
                     Slider(value: step.cooldownTargetTemp, in: 30...70, step: 1)
                     Text("\(Int(step.wrappedValue.cooldownTargetTemp)) °C")
                         .frame(width: 60, alignment: .trailing)
                         .font(.system(.body, design: .monospaced))
                 }
                 HStack {
-                    Text("检查间隔")
-                        .frame(width: 80, alignment: .leading)
+                    Text(L.checkEvery.s)
+                        .frame(minWidth: 80, alignment: .leading)
+                        .fixedSize(horizontal: true, vertical: false)
                     Slider(value: step.cooldownPollSec, in: 1...30, step: 1)
-                    Text("\(Int(step.wrappedValue.cooldownPollSec)) 秒")
+                    Text(L.seconds("\(Int(step.wrappedValue.cooldownPollSec))").s)
                         .frame(width: 60, alignment: .trailing)
                         .font(.system(.body, design: .monospaced))
                 }
@@ -304,23 +342,23 @@ struct SettingsView: View {
         let current = step.wrappedValue.sensor
         let names = model.snapshot.readings.map(\.name).filter { !SensorMath.isCalibration($0) }
         HStack {
-            Text("参考温度")
-                .frame(width: 80, alignment: .leading)
+            Text(L.follows.s)
+                .frame(minWidth: 80, alignment: .leading)
+                .fixedSize(horizontal: true, vertical: false)
             Picker("", selection: step.sensor) {
-                Text("最热的 CPU 核心（推荐，等同 TG Pro 的 Highest CPU）").tag(SensorSelection.cpuMax)
-                Text("芯片各温度点的平均").tag(SensorSelection.cpuAvg)
-                Text("所有传感器里最热的（含硬盘、电池）").tag(SensorSelection.anyMax)
+                Text(L.sensorHottestCoreRecommended.s).tag(SensorSelection.cpuMax)
+                Text(L.sensorChipAverage.s).tag(SensorSelection.cpuAvg)
+                Text(L.sensorHottestAny.s).tag(SensorSelection.anyMax)
                 Divider()
                 if case .named(let n) = current, !names.contains(n) {
-                    Text("\(n)（现在读不到）").tag(current)
+                    Text(L.unavailable(L.sensorName(n)).s).tag(current)
                 }
                 ForEach(names, id: \.self) { n in
-                    Text(n).tag(SensorSelection.named(n))
+                    Text(L.sensorName(n)).tag(SensorSelection.named(n))
                 }
             }
             .labelsHidden()
-            .frame(maxWidth: 380)
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -328,7 +366,7 @@ struct SettingsView: View {
     private func temperatureCurveEditor(step: Binding<CycleStep>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("曲线（拖拽调点；右键删除）")
+                Text(L.curveTitle.s)
                     .font(.subheadline).bold()
                 Spacer()
                 Button {
@@ -341,21 +379,17 @@ struct SettingsView: View {
                     step.wrappedValue.curve = arr
                 } label: { Image(systemName: "plus.circle") }
                     .buttonStyle(.borderless)
-                    .help("加一个点")
-                Menu("载入预设") {
+                    .help(L.addPoint.s)
+                Menu(L.loadPreset.s) {
                     ForEach(CurveTemplate.allCases) { tmpl in
                         Button(tmpl.displayName) { step.wrappedValue.curve = tmpl.points }
                     }
                 }
-                .frame(maxWidth: 100)
+                .fixedSize()
             }
             FanCurveEditor(curve: step.curve, mode: draft.curveMode, live: liveMarker(for: step.wrappedValue))
                 .background(RoundedRectangle(cornerRadius: 6).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-            Text("""
-                X 轴 20–90°C（5°C 一格） · Y 轴 0–100%（5% 一格）+ 底部 Stop 档（橙色）。
-                百分比按风扇转速范围折算（0% = 最低转速，100% = 最高转速）。
-                把点拖到 Stop 区表示这一段不接管，交还系统（风扇可以停转）。空心圆圈是当前温度在这条曲线上的位置。
-                """)
+            Text(L.curveHelp.s)
                 .font(.caption2)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -383,11 +417,11 @@ struct SettingsView: View {
                     }
                 }
             } label: {
-                Label("添加档位", systemImage: "plus")
+                Label(L.addProfile.s, systemImage: "plus")
             }
-            .frame(maxWidth: 140)
+            .fixedSize()
             Spacer()
-            Text("用 ↑↓ 调整顺序")
+            Text(L.reorderHint.s)
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -399,7 +433,7 @@ struct SettingsView: View {
         case .idle:
             EmptyView()
         case .saved:
-            Label("已保存并生效", systemImage: "checkmark.circle.fill").foregroundColor(.blue)
+            Label(L.saved.s, systemImage: "checkmark.circle.fill").foregroundColor(.blue)
         case .error(let msg):
             Label(msg, systemImage: "exclamationmark.triangle.fill").foregroundColor(.orange)
         }

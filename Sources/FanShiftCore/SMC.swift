@@ -12,12 +12,12 @@ public struct SMCError: Error, CustomStringConvertible {
     public var isNotPrivileged: Bool { UInt32(bitPattern: kr) == 0xe000_02c1 }
 
     public var description: String {
-        var s = "SMC \(op) \(key) 失败"
+        var s = "SMC \(op) \(key) failed"
         if kr != 0 { s += String(format: " kr=0x%x", UInt32(bitPattern: kr)) }
         if result != 0 { s += String(format: " result=0x%02x", result) }
-        if isNotPrivileged { s += "（没有权限，需要 root）" }
-        if result == 0x82 { s += "（固件拒绝）" }
-        if result == 0x84 { s += "（没有这个键）" }
+        if isNotPrivileged { s += " (not privileged, needs root)" }
+        if result == 0x82 { s += " (rejected by firmware)" }
+        if result == 0x84 { s += " (no such key)" }
         if !note.isEmpty { s += " \(note)" }
         return s
     }
@@ -31,7 +31,7 @@ public enum SMC {
     }
 
     static func code(_ key: String) -> UInt32 {
-        precondition(key.utf8.count == 4, "SMC 键必须是 4 个字符：\(key)")
+        precondition(key.utf8.count == 4, "SMC keys are 4 characters: \(key)")
         return key.utf8.reduce(0) { ($0 << 8) | UInt32($1) }
     }
 
@@ -53,7 +53,7 @@ public enum SMC {
         var buf = [UInt8](repeating: 0, count: 32)
         let st = csmc_read(code(key), &ki, &buf)
         guard st.kr == 0, st.result == 0 else {
-            throw SMCError(op: "读", key: key, kr: st.kr, result: st.result)
+            throw SMCError(op: "read", key: key, kr: st.kr, result: st.result)
         }
         return (string(ki.type), Array(buf.prefix(Int(min(ki.size, 32)))))
     }
@@ -87,22 +87,22 @@ public enum SMC {
         case "fpe2" where b.count == 2:
             return Double(UInt16(b[0]) << 8 | UInt16(b[1])) / 4.0
         default:
-            throw SMCError(op: "读", key: key, kr: 0, result: 0, note: "不认识的类型 \(type)")
+            throw SMCError(op: "read", key: key, kr: 0, result: 0, note: "unknown type \(type)")
         }
     }
 
     /// 写之前核对键的类型和长度，对不上就不写
     private static func write(_ key: String, expecting type: String, bytes: [UInt8]) throws {
         guard let ki = info(key) else {
-            throw SMCError(op: "写", key: key, kr: 0, result: 0x84)
+            throw SMCError(op: "write", key: key, kr: 0, result: 0x84)
         }
         guard ki.type == type, ki.size == bytes.count else {
-            throw SMCError(op: "写", key: key, kr: 0, result: 0,
-                           note: "类型不符：期望 \(type)/\(bytes.count) 字节，实际 \(ki.type)/\(ki.size) 字节")
+            throw SMCError(op: "write", key: key, kr: 0, result: 0,
+                           note: "type mismatch: expected \(type)/\(bytes.count) bytes, found \(ki.type)/\(ki.size) bytes")
         }
         let st = bytes.withUnsafeBufferPointer { csmc_write(code(key), $0.baseAddress, UInt32(bytes.count)) }
         guard st.kr == 0, st.result == 0 else {
-            throw SMCError(op: "写", key: key, kr: st.kr, result: st.result)
+            throw SMCError(op: "write", key: key, kr: st.kr, result: st.result)
         }
     }
 

@@ -36,7 +36,11 @@ final class AppModel: ObservableObject {
     static let tickInterval: TimeInterval = 2
     static let lease: TimeInterval = 10
 
-    @Published private(set) var config: AppConfig
+    /// 界面语言跟着配置走。用 willSet 而不是 didSet：订阅 $config 的地方在赋值之前就会收到新值，
+    /// 这时界面语言必须已经换好，不然重画出来的还是旧语言。
+    @Published private(set) var config: AppConfig {
+        willSet { Lang.current = newValue.language }
+    }
     @Published private(set) var snapshot = Snapshot()
     @Published private(set) var helperState: HelperState = .unknown
     @Published private(set) var lastError: String?
@@ -73,6 +77,8 @@ final class AppModel: ObservableObject {
         channel = dryRun ? DryRunChannel() : XPCHelperChannel()
 
         let loaded = AppConfig.load()
+        // init 里赋值不会触发 willSet，这里手动设一次
+        Lang.current = loaded.config.language
         config = loaded.config
         configSource = loaded.source
 
@@ -94,7 +100,7 @@ final class AppModel: ObservableObject {
         // 而后台程序 10 秒收不到指令就会把风扇交还系统。所以明确声明这是不能降频的活动（不阻止电脑睡眠）。
         activity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep],
-            reason: "按温度曲线控制风扇，需要每 2 秒算一次"
+            reason: "Controlling the fans from temperature curves; needs to run every 2 seconds"
         )
         refreshHelper()
         let t = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
@@ -137,7 +143,7 @@ final class AppModel: ObservableObject {
     func cycle() {
         queue.async {
             guard let step = self.controller.cycle(now: Date()) else {
-                self.alert("循环列表为空")
+                self.alert(L.noProfilesAlert)
                 return
             }
             self.persist()
@@ -191,13 +197,18 @@ final class AppModel: ObservableObject {
                     self.setHelper(.ready)
                 }
             } else {
-                self.setHelper(.problem(error ?? "连不上后台程序"))
+                self.setHelper(.problem(error ?? L.cannotReachHelperShort.s))
             }
         }
     }
 
-    /// 弹密码框安装后台程序（在主线程调用，会一直等到用户输完密码）。成功返回 nil。
+    /// 弹密码框安装后台程序（在主线程调用，会一直等到用户输完密码）。成功返回 nil，否则返回给界面看的原因。
     func installHelper() -> String? {
+        installHelperResult()?.message
+    }
+
+    /// 同上，但能分辨出「用户点了取消」
+    func installHelperResult() -> HelperInstallError? {
         let error = HelperInstaller.install()
         // 刚装好的服务要一点时间才能连上
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self.refreshHelper() }
@@ -208,7 +219,7 @@ final class AppModel: ObservableObject {
         queue.sync { engaged = false }
         let error = HelperInstaller.uninstall()
         refreshHelper()
-        return error
+        return error?.message
     }
 
     private func setHelper(_ state: HelperState) {
@@ -233,6 +244,11 @@ final class AppModel: ObservableObject {
 
     private func alert(_ text: String) {
         DispatchQueue.main.async { self.onAlert?(text) }
+    }
+
+    /// 界面文字到了主线程再取当前语言的版本
+    private func alert(_ text: Tr) {
+        DispatchQueue.main.async { self.onAlert?(text.s) }
     }
 
     private func persist() {

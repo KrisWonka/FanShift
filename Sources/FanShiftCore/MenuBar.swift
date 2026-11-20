@@ -13,9 +13,9 @@ public enum MenuBarStyle: String, Codable, CaseIterable, Identifiable {
 
     public var displayName: String {
         switch self {
-        case .inline: return "一行（P 52° 5330）"
-        case .stackedRPMAbove: return "两行，转速在上（仿 TG Pro）"
-        case .stackedRPMBelow: return "两行，转速在下"
+        case .inline: return "One line (P 52° 5330)"
+        case .stackedRPMAbove: return "Two lines, RPM on top (like TG Pro)"
+        case .stackedRPMBelow: return "Two lines, RPM below"
         }
     }
 

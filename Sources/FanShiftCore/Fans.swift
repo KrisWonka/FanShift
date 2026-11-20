@@ -68,14 +68,14 @@ public final class SMCFans: FanHardware {
 
     public init() throws {
         guard let count = try? SMC.readDouble("FNum"), count >= 1 else {
-            throw FanSetupError(description: "这台 Mac 没有风扇，或者读不到风扇数量")
+            throw FanSetupError(description: "this Mac has no fans, or the fan count cannot be read")
         }
         var list: [FanInfo] = []
         for n in 0..<Int(count) {
             let mn = try SMC.readDouble("F\(n)Mn")
             let mx = try SMC.readDouble("F\(n)Mx")
             guard mn > 0, mx > mn else {
-                throw FanSetupError(description: "风扇 \(n) 的转速范围不正常：\(mn) ~ \(mx)")
+                throw FanSetupError(description: "fan \(n) reports an invalid speed range: \(mn) to \(mx)")
             }
             list.append(FanInfo(index: n, minRPM: mn, maxRPM: mx))
         }
@@ -85,7 +85,7 @@ public final class SMCFans: FanHardware {
         } else if SMC.info("F0Md") != nil {
             modeSuffix = "Md"
         } else {
-            throw FanSetupError(description: "找不到风扇模式键 F0md / F0Md")
+            throw FanSetupError(description: "no fan mode key found (F0md / F0Md)")
         }
         hasForceTestKey = SMC.info("Ftst") != nil
     }

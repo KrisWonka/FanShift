@@ -27,6 +27,26 @@ public enum CycleStepType: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// 界面语言
+public enum AppLanguage: String, Codable, CaseIterable, Identifiable {
+    case english = "en"
+    case simplifiedChinese = "zh-Hans"
+    case traditionalChinese = "zh-Hant"
+    case spanish = "es"
+
+    public var id: String { rawValue }
+
+    /// 用这门语言自己写的名字。选单里这样显示，不管当前界面是什么语言都认得出来。
+    public var nativeName: String {
+        switch self {
+        case .english: return "English"
+        case .simplifiedChinese: return "简体中文"
+        case .traditionalChinese: return "繁體中文"
+        case .spanish: return "Español"
+        }
+    }
+}
+
 /// 曲线上两个点之间怎么取值
 public enum CurveMode: String, Codable, CaseIterable, Identifiable {
     /// 阶梯：温度超过某个点，就用那个点的转速，直到超过下一个点（TG Pro 的做法）
@@ -38,8 +58,8 @@ public enum CurveMode: String, Codable, CaseIterable, Identifiable {
 
     public var displayName: String {
         switch self {
-        case .step: return "阶梯（和 TG Pro 一样）"
-        case .linear: return "连直线（更平滑，同一条曲线下转速会更高）"
+        case .step: return "Steps (like TG Pro)"
+        case .linear: return "Linear (smoother, faster fans on the same curve)"
         }
     }
 }
@@ -166,6 +186,9 @@ public struct CycleStep: Codable, Identifiable, Equatable {
 }
 
 public struct AppConfig: Codable, Equatable {
+    /// 界面语言，默认英文
+    public var language: AppLanguage = .english
+
     public var hotkeyEnabled: Bool = true
     public var hotkeyMods: [String] = ["ctrl", "alt", "cmd"]
     public var hotkeyKey: String = "8"
@@ -202,6 +225,7 @@ public struct AppConfig: Codable, Equatable {
     public init() {}
 
     enum CodingKeys: String, CodingKey {
+        case language
         case hotkeyEnabled, hotkeyMods, hotkeyKey, hotkeyKeyCode
         case alertEnabled, alertDuration, alertCooldownDone
         case menuBarShowTemp, menuBarShowRPM, curveMode, hotCoreOffset, cycleSteps
@@ -211,6 +235,8 @@ public struct AppConfig: Codable, Equatable {
     public init(from decoder: Decoder) throws {
         let d = AppConfig()
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        // 认不出的语言（比如以后版本加的）按默认处理，不让整份配置读不出来
+        language = (try? c.decodeIfPresent(AppLanguage.self, forKey: .language)) ?? d.language
         hotkeyEnabled = try c.decodeIfPresent(Bool.self, forKey: .hotkeyEnabled) ?? d.hotkeyEnabled
         hotkeyMods = try c.decodeIfPresent([String].self, forKey: .hotkeyMods) ?? d.hotkeyMods
         hotkeyKey = try c.decodeIfPresent(String.self, forKey: .hotkeyKey) ?? d.hotkeyKey

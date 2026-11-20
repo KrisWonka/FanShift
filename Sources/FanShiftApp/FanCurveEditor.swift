@@ -173,7 +173,7 @@ struct FanCurveEditor: View {
                     Button(role: .destructive) {
                         if curve.count > 1 { curve.remove(at: i) }
                     } label: {
-                        Label("删除这个点", systemImage: "trash")
+                        Label(L.deletePoint.s, systemImage: "trash")
                     }
                 }
                 .overlay(

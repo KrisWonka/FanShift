@@ -7,16 +7,16 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $model.selectedTab) {
             SettingsView()
-                .tabItem { Label("Settings", systemImage: "slider.horizontal.3") }
+                .tabItem { Label(L.tabSettings.s, systemImage: "slider.horizontal.3") }
                 .tag(0)
             SensorsView()
-                .tabItem { Label("Sensors", systemImage: "thermometer.medium") }
+                .tabItem { Label(L.tabSensors.s, systemImage: "thermometer.medium") }
                 .tag(1)
             StatusView()
-                .tabItem { Label("Status", systemImage: "fan") }
+                .tabItem { Label(L.tabStatus.s, systemImage: "fan") }
                 .tag(2)
             AboutView()
-                .tabItem { Label("About", systemImage: "info.circle") }
+                .tabItem { Label(L.tabAbout.s, systemImage: "info.circle") }
                 .tag(3)
         }
         .frame(minWidth: 720, minHeight: 600)
@@ -43,8 +43,12 @@ struct SensorsView: View {
 
     private var displayed: [SensorReading] {
         let all = model.snapshot.readings
-        let filtered = filter.isEmpty ? all : all.filter { $0.name.localizedCaseInsensitiveContains(filter) }
-        guard sortByValue else { return filtered.sorted { $0.name < $1.name } }
+        // 原名和界面上显示的（翻译过的）名字，哪个对得上都算
+        let filtered = filter.isEmpty ? all : all.filter {
+            $0.name.localizedCaseInsensitiveContains(filter)
+                || L.sensorName($0.name).localizedCaseInsensitiveContains(filter)
+        }
+        guard sortByValue else { return filtered.sorted { L.sensorName($0.name) < L.sensorName($1.name) } }
         // 校准读数不是真实温度，按温度排序时放到最后
         return filtered.sorted { a, b in
             let ca = SensorMath.isCalibration(a.name), cb = SensorMath.isCalibration(b.name)
@@ -54,15 +58,15 @@ struct SensorsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("温度传感器实时监控")
+            Text(L.sensorsTitle.s)
                 .font(.title2).bold()
             HStack {
-                TextField("过滤名字（如 核心、tdie、NAND）", text: $filter)
+                TextField(L.filterPlaceholder.s, text: $filter)
                     .textFieldStyle(.roundedBorder)
                     .frame(maxWidth: 280)
-                Toggle("按温度排序", isOn: $sortByValue)
+                Toggle(L.sortByTemp.s, isOn: $sortByValue)
                 Spacer()
-                Text("共 \(model.snapshot.readings.count) 个，每 2 秒刷新")
+                Text(L.sensorCount(model.snapshot.readings.count).s)
                     .font(.caption).foregroundColor(.secondary)
             }
             ScrollView {
@@ -75,7 +79,7 @@ struct SensorsView: View {
             }
             .background(Color.gray.opacity(0.06))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            Text("「核心」是各 CPU 核心的温度，曲线默认参考其中最热的一个；「芯片」是芯片上的温度点，Cooldown 参考它们的平均。每个档位参考哪个温度，在 Settings → 展开档位 →「参考温度」里选。")
+            Text(L.sensorsHelp.s)
                 .font(.caption2).foregroundColor(.secondary)
         }
         .padding(20)
@@ -85,10 +89,10 @@ struct SensorsView: View {
     private func row(_ r: SensorReading) -> some View {
         let calibration = SensorMath.isCalibration(r.name)
         return HStack(spacing: 8) {
-            Text(r.name)
+            Text(L.sensorName(r.name))
                 .font(.system(.body, design: .monospaced))
                 .frame(width: 200, alignment: .leading)
-            Text(calibration ? "校准值" : (SensorMath.isCore(r.name) ? "核心" : (SensorMath.isDie(r.name) ? "芯片" : "")))
+            Text(calibration ? L.kindCalibration.s : (SensorMath.isCore(r.name) ? L.kindCore.s : (SensorMath.isDie(r.name) ? L.kindDie.s : "")))
                 .font(.caption2)
                 .foregroundColor(.secondary)
                 .frame(width: 44, alignment: .leading)
@@ -121,19 +125,19 @@ struct StatusView: View {
         let s = model.snapshot
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("当前状态").font(.title2).bold()
+                Text(L.statusTitle.s).font(.title2).bold()
 
                 statusRow(
-                    label: "后台程序（负责把转速写进风扇）",
+                    label: L.helperRow.s,
                     ok: model.helperState.isReady,
-                    detail: model.dryRun ? "演练模式：只打印指令，不碰风扇" : model.helperState.summary
+                    detail: model.dryRun ? L.dryRun.s : model.helperState.summary
                 )
                 HStack {
-                    Button(model.helperState == .notInstalled ? "安装后台程序…" : "重新安装后台程序…") {
-                        message = model.installHelper().map { "安装没成功：\($0)" } ?? "已安装"
+                    Button(model.helperState == .notInstalled ? L.installHelper.s : L.reinstallHelper.s) {
+                        message = model.installHelper().map { L.installFailedMessage($0).s } ?? L.installed.s
                     }
-                    Button("卸载后台程序…") {
-                        message = model.uninstallHelper().map { "卸载没成功：\($0)" } ?? "已卸载，风扇完全交给系统"
+                    Button(L.uninstallHelper.s) {
+                        message = model.uninstallHelper().map { L.uninstallFailedMessage($0).s } ?? L.uninstalled.s
                     }
                     .disabled(model.helperState == .notInstalled)
                     if let message {
@@ -144,49 +148,54 @@ struct StatusView: View {
                 .padding(.leading, 34)
 
                 statusRow(
-                    label: "当前档位：\(s.stepName)",
+                    label: L.currentProfile(s.stepName).s,
                     ok: true,
                     detail: stepDetail(s)
                 )
 
                 ForEach(s.fans, id: \.index) { fan in
                     statusRow(
-                        label: "风扇 \(fan.index + 1)：\(Int(fan.actual.rounded())) RPM",
+                        label: L.fanRow(fan.index + 1, Int(fan.actual.rounded())).s,
                         ok: true,
-                        detail: "目标 \(Int(fan.target.rounded())) · 范围 \(Int(fan.minRPM))–\(Int(fan.maxRPM)) · \(modeText(fan.mode))"
+                        detail: L.fanDetail(
+                            target: Int(fan.target.rounded()),
+                            min: Int(fan.minRPM),
+                            max: Int(fan.maxRPM),
+                            mode: modeText(fan.mode)
+                        ).s
                     )
                 }
                 if s.fans.isEmpty {
-                    statusRow(label: "风扇", ok: false, detail: "读不到风扇信息")
+                    statusRow(label: L.fans.s, ok: false, detail: L.noFanInfo.s)
                 }
 
                 if model.menuBarObstructed {
                     statusRow(
-                        label: "菜单栏放不下，\(FanShiftInfo.appName) 的图标现在看不见",
+                        label: L.hiddenTitle(FanShiftInfo.appName).s,
                         ok: false,
-                        detail: "右边的菜单栏图标太多，系统把排不下的藏起来了（有刘海的屏幕上是藏到刘海底下）。可以在 Settings →「菜单栏」里换成两行样式、关掉温度或转速，或者减少其他菜单栏图标。快捷键不受影响。"
+                        detail: L.hiddenDetail.s
                     )
                 }
                 if s.tgProRunning {
                     statusRow(
-                        label: "TG Pro 正在运行",
+                        label: L.tgProRunningTitle.s,
                         ok: false,
-                        detail: "两个软件同时控制风扇会互相覆盖。用 \(FanShiftInfo.appName) 控制时请退出 TG Pro。"
+                        detail: L.tgProRunningDetail(FanShiftInfo.appName).s
                     )
                 }
                 if let error = model.lastError {
-                    statusRow(label: "最近一次出错", ok: false, detail: error)
+                    statusRow(label: L.lastError.s, ok: false, detail: error)
                 }
 
                 Divider()
-                Text("配置文件：\(AppPaths.config.path)")
+                Text(L.configFile(AppPaths.config.path).s)
                     .font(.caption).foregroundColor(.secondary).textSelection(.enabled)
                 if !model.menuBarDiagnostics.isEmpty {
-                    Text("菜单栏项：\(model.menuBarDiagnostics)")
+                    Text(L.menuBarItems(model.menuBarDiagnostics).s)
                         .font(.caption).foregroundColor(.secondary).textSelection(.enabled)
                 }
                 if model.configSource == .migratedFromLegacy {
-                    Text("这份配置是第一次启动时从旧版（~/.hammerspoon/tgpro-hotkey-config.json）搬过来的，旧文件没有动。")
+                    Text(L.migrated.s)
                         .font(.caption).foregroundColor(.secondary)
                 }
             }
@@ -196,18 +205,18 @@ struct StatusView: View {
     }
 
     private func stepDetail(_ s: Snapshot) -> String {
-        let temp = s.temperature.map { String(format: "参考温度 %.1f°C", $0) } ?? "读不到温度"
+        let temp = s.temperature.map { L.following(String(format: "%.1f", $0)).s } ?? L.noTemp.s
         if let p = s.percent {
-            return "\(temp) · 目标 \(Int(p.rounded()))%" + (s.controlling ? "" : "（没有生效：后台程序不可用）")
+            return "\(temp) · \(L.targetPercent(Int(p.rounded())).s)" + (s.controlling ? "" : L.notApplied.s)
         }
-        return "\(temp) · 风扇已交还系统"
+        return "\(temp) · \(L.fansReleased.s)"
     }
 
     private func modeText(_ mode: Int) -> String {
         switch mode {
-        case FanMode.forced: return "由软件接管"
-        case FanMode.auto, FanMode.system: return "系统控制"
-        default: return "模式 \(mode)"
+        case FanMode.forced: return L.modeForced.s
+        case FanMode.auto, FanMode.system: return L.modeSystem.s
+        default: return L.modeOther(mode).s
         }
     }
 
@@ -230,8 +239,11 @@ struct StatusView: View {
 // MARK: 关于
 
 struct AboutView: View {
+    // 不直接用 model，但要观察它：切换语言时这一页才会跟着刷新
+    @EnvironmentObject var model: AppModel
+
     private var version: String {
-        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "开发版"
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? L.devBuild.s
     }
 
     var body: some View {
@@ -242,9 +254,9 @@ struct AboutView: View {
                 .frame(width: 128, height: 128)
             Text(FanShiftInfo.appName)
                 .font(.largeTitle).bold()
-            Text("版本 \(version)")
+            Text(L.version(version).s)
                 .font(.caption).foregroundColor(.secondary)
-            Text("一个快捷键循环切换风扇档位，每个档位一条自己画的温度曲线")
+            Text(L.tagline.s)
                 .foregroundColor(.secondary)
             if let url = URL(string: FanShiftInfo.repoURL) {
                 Link(FanShiftInfo.repoURL.replacingOccurrences(of: "https://", with: ""), destination: url)

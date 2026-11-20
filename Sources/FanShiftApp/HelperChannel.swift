@@ -13,11 +13,25 @@ enum HelperState: Equatable {
 
     var summary: String {
         switch self {
-        case .unknown: return "检查中…"
-        case .notInstalled: return "还没安装"
-        case .ready: return "运行正常"
-        case .outdated(let v): return "版本不对（装的是 \(v)，需要 \(FanShiftInfo.helperVersion)），请重装"
+        case .unknown: return L.helperChecking.s
+        case .notInstalled: return L.helperNotInstalled.s
+        case .ready: return L.helperRunning.s
+        case .outdated(let v): return L.helperOutdated(installed: v, needed: FanShiftInfo.helperVersion).s
         case .problem(let p): return p
+        }
+    }
+}
+
+/// 安装 / 卸载后台程序没成功的原因。「用户点了取消」单独一种，调用方据此决定要不要弹错误框，不用去比对文字。
+enum HelperInstallError: Error, Equatable {
+    case cancelled
+    case failed(String)
+
+    /// 给界面看的说明
+    var message: String {
+        switch self {
+        case .cancelled: return L.cancelled.s
+        case .failed(let reason): return reason
         }
     }
 }
@@ -69,30 +83,30 @@ final class XPCHelperChannel: HelperChannel {
 
     private func proxy(_ onError: @escaping (String) -> Void) -> FanHelperXPC? {
         let p = currentConnection().remoteObjectProxyWithErrorHandler { error in
-            onError("连不上后台程序：\(error.localizedDescription)")
+            onError(L.cannotReachHelper(error.localizedDescription).s)
         }
         return p as? FanHelperXPC
     }
 
     func info(completion: @escaping (HelperInfo?, String?) -> Void) {
         let once = Once<(HelperInfo?, String?)> { completion($0.0, $0.1) }
-        guard let p = proxy({ once.call((nil, $0)) }) else { return once.call((nil, "接口不对")) }
+        guard let p = proxy({ once.call((nil, $0)) }) else { return once.call((nil, L.badInterface.s)) }
         p.info { json in
-            if let info = HelperInfo.parse(json) { once.call((info, nil)) } else { once.call((nil, "后台程序的应答看不懂")) }
+            if let info = HelperInfo.parse(json) { once.call((info, nil)) } else { once.call((nil, L.badReply.s)) }
         }
         // 后台程序没反应时不能一直等
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3) { once.call((nil, "后台程序没有应答")) }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 3) { once.call((nil, L.noReply.s)) }
     }
 
     func setTargets(_ rpms: [Double], lease: Double, completion: @escaping (String?) -> Void) {
         let once = Once(completion)
-        guard let p = proxy({ once.call($0) }) else { return once.call("接口不对") }
+        guard let p = proxy({ once.call($0) }) else { return once.call(L.badInterface.s) }
         p.setTargets(rpms, leaseSeconds: lease) { once.call($0) }
     }
 
     func release(completion: @escaping (String?) -> Void) {
         let once = Once(completion)
-        guard let p = proxy({ once.call($0) }) else { return once.call("接口不对") }
+        guard let p = proxy({ once.call($0) }) else { return once.call(L.badInterface.s) }
         p.releaseFans { once.call($0) }
     }
 }
@@ -114,12 +128,12 @@ final class DryRunChannel: HelperChannel {
     }
 
     func setTargets(_ rpms: [Double], lease: Double, completion: @escaping (String?) -> Void) {
-        say("目标转速 \(rpms.map { Int($0) })")
+        say("targets \(rpms.map { Int($0) })")
         completion(nil)
     }
 
     func release(completion: @escaping (String?) -> Void) {
-        say("交还系统")
+        say("release to system")
         completion(nil)
     }
 }
@@ -139,7 +153,7 @@ enum HelperInstaller {
     }
 
     /// 以管理员身份跑一段 shell。成功返回 nil，否则返回原因。必须在主线程调用。
-    private static func runAsAdmin(_ shell: String, prompt: String) -> String? {
+    private static func runAsAdmin(_ shell: String, prompt: String) -> HelperInstallError? {
         func escape(_ s: String) -> String {
             s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
         }
@@ -147,13 +161,14 @@ enum HelperInstaller {
         var error: NSDictionary?
         NSAppleScript(source: source)?.executeAndReturnError(&error)
         guard let error else { return nil }
-        if (error[NSAppleScript.errorNumber] as? Int) == -128 { return "已取消" }
-        return (error[NSAppleScript.errorMessage] as? String) ?? "执行失败"
+        // -128 = 用户在密码框点了取消
+        if (error[NSAppleScript.errorNumber] as? Int) == -128 { return .cancelled }
+        return .failed((error[NSAppleScript.errorMessage] as? String) ?? L.runFailed.s)
     }
 
-    static func install() -> String? {
+    static func install() -> HelperInstallError? {
         guard let daemon = bundledDaemon, let plist = bundledPlist else {
-            return "App 里没有带后台程序，请用 scripts/build-app.sh 打包后的 App 来安装"
+            return .failed(L.noBundledHelper.s)
         }
         let label = FanShiftInfo.daemonLabel
         let shell = [
@@ -163,15 +178,15 @@ enum HelperInstaller {
                 + " && /usr/bin/install -o root -g wheel -m 644 \(quote(plist)) \(quote(FanShiftInfo.daemonPlistPath))"
                 + " && /bin/launchctl bootstrap system \(quote(FanShiftInfo.daemonPlistPath))",
         ].joined(separator: "; ")
-        return runAsAdmin(shell, prompt: "FanShift 要安装控制风扇用的后台程序。")
+        return runAsAdmin(shell, prompt: L.installPrompt(FanShiftInfo.appName).s)
     }
 
-    static func uninstall() -> String? {
+    static func uninstall() -> HelperInstallError? {
         let label = FanShiftInfo.daemonLabel
         let shell = [
             "/bin/launchctl bootout system/\(label) 2>/dev/null",
             "/bin/rm -f \(quote(FanShiftInfo.daemonBinaryPath)) \(quote(FanShiftInfo.daemonPlistPath)) \(quote(FanShiftInfo.daemonMarkerPath))",
         ].joined(separator: "; ")
-        return runAsAdmin(shell, prompt: "FanShift 要卸载控制风扇用的后台程序。")
+        return runAsAdmin(shell, prompt: L.uninstallPrompt(FanShiftInfo.appName).s)
     }
 }

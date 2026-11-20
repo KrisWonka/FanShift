@@ -10,7 +10,7 @@ import FanShiftCore
 final class StatusItemController: NSObject, NSMenuDelegate {
     private enum Role: String {
         case readout, letter
-        var displayName: String { self == .readout ? "读数" : "字母" }
+        var displayName: String { rawValue }
 
         /// 给系统认的名字。系统按「程序名 + 这个名字」记每个菜单栏项的位置，而且它自己那份记录优先于我们预置的值。
         /// 不用系统默认的 Item-0、Item-1：那两个名字下的记录一旦坏了（图标怎么预置都被藏起来），没有办法清掉，
@@ -111,23 +111,24 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         return !window.occlusionState.contains(.visible)
     }
 
+    /// 排查用的技术信息（Status 页底部和调试日志里显示），不翻译
     private func diagnostics() -> String {
         func describe(_ role: Role) -> String {
-            guard let item = item(role) else { return "\(role.displayName)：没有" }
-            guard let window = item.button?.window else { return "\(role.displayName)：没有窗口" }
+            guard let item = item(role) else { return "\(role.displayName): none" }
+            guard let window = item.button?.window else { return "\(role.displayName): no window" }
             let f = window.frame
-            let system = UserDefaults.standard.object(forKey: Self.systemPositionKey(role.autosaveName)).map { "\($0)" } ?? "无"
-            let saved = UserDefaults.standard.object(forKey: Self.savedPositionKey(role)).map { "\($0)" } ?? "无"
-            return "\(role.displayName)：x \(Int(f.minX))–\(Int(f.maxX))，\(window.occlusionState.contains(.visible) ? "看得见" : "看不见")，"
-                + "位置 \(system)，另存 \(saved)"
+            let system = UserDefaults.standard.object(forKey: Self.systemPositionKey(role.autosaveName)).map { "\($0)" } ?? "none"
+            let saved = UserDefaults.standard.object(forKey: Self.savedPositionKey(role)).map { "\($0)" } ?? "none"
+            return "\(role.displayName): x \(Int(f.minX))–\(Int(f.maxX)), \(window.occlusionState.contains(.visible) ? "visible" : "hidden"), "
+                + "position \(system), saved \(saved)"
         }
         let screen = readout?.button?.window?.screen ?? letter?.button?.window?.screen ?? NSScreen.main
-        let notchRight = screen?.auxiliaryTopRightArea.map { String(Int($0.minX)) } ?? "无"
+        let notchRight = screen?.auxiliaryTopRightArea.map { String(Int($0.minX)) } ?? "none"
         return [
             describe(.readout),
             describe(.letter),
-            "屏幕宽 \(Int(screen?.frame.width ?? 0))，刘海右侧从 x \(notchRight) 起",
-        ].joined(separator: "；")
+            "screen width \(Int(screen?.frame.width ?? 0)), right of notch from x \(notchRight)",
+        ].joined(separator: "; ")
     }
 
     // MARK: 显示
@@ -155,7 +156,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// 菜单栏内容的文字版（调试和截图时用）
     static func debugText(_ layout: MenuBarLayout) -> String {
         let lines = layout.lines.map { $0.map(\.text).joined(separator: " ") }.joined(separator: " / ")
-        return "字母项：\(layout.letterItem ?? "无") | 读数项：\([layout.leading, lines.isEmpty ? nil : lines].compactMap { $0 }.joined(separator: " "))"
+        return "letter item: \(layout.letterItem ?? "none") | readout item: \([layout.leading, lines.isEmpty ? nil : lines].compactMap { $0 }.joined(separator: " "))"
     }
 
     private static func isDark(_ view: NSView?) -> Bool {
@@ -208,8 +209,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private func render(_ s: Snapshot, _ config: AppConfig, _ helper: HelperState) {
         let layout = Self.layout(s, config, helper)
-        let hotkey = config.hotkeyEnabled ? "（同 \(KeyCodes.display(mods: config.hotkeyMods, key: config.hotkeyKey))）" : ""
-        let cycleTip = "\(s.stepName)。点击切下一档\(hotkey)，右键打开菜单"
+        // 每次重画都按当前语言重新生成（改语言会改配置，配置一变这里就会重画）
+        let hotkey = config.hotkeyEnabled ? KeyCodes.display(mods: config.hotkeyMods, key: config.hotkeyKey) : nil
+        let cycleTip = L.tipCycle(s.stepName, hotkey: hotkey).s
 
         // 读数那一项（先创建它，字母排在它后面创建）
         if layout.readoutHidden {
@@ -241,7 +243,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
                         button.title = ([layout.leading].compactMap { $0 } + segments.map(\.text)).joined(separator: " ")
                     }
                 }
-                button.toolTip = layout.leading == nil ? "\(s.stepName)。点击打开菜单" : cycleTip
+                button.toolTip = layout.leading == nil ? L.tipMenu(s.stepName).s : cycleTip
             }
         }
 
@@ -263,7 +265,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             let diagnostics = self.diagnostics()
             if self.model.menuBarDiagnostics != diagnostics {
                 self.model.menuBarDiagnostics = diagnostics
-                HUD.debugLog("菜单栏 \(diagnostics)")
+                HUD.debugLog("menu bar \(diagnostics)")
             }
         }
     }
@@ -330,7 +332,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         headerItem.isEnabled = false
         menu.addItem(headerItem)
         if !model.helperState.isReady, model.helperState != .unknown {
-            let warn = NSMenuItem(title: "后台程序：\(model.helperState.summary)", action: nil, keyEquivalent: "")
+            let warn = NSMenuItem(title: L.helperInMenu(model.helperState.summary).s, action: nil, keyEquivalent: "")
             warn.isEnabled = false
             menu.addItem(warn)
         }
@@ -345,10 +347,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
         menu.addItem(.separator())
 
-        let settings = NSMenuItem(title: "设置…", action: #selector(settingsClicked), keyEquivalent: ",")
+        let settings = NSMenuItem(title: L.settingsMenu.s, action: #selector(settingsClicked), keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
-        let quit = NSMenuItem(title: "退出 \(FanShiftInfo.appName)", action: #selector(quitClicked), keyEquivalent: "q")
+        let quit = NSMenuItem(title: L.quit(FanShiftInfo.appName).s, action: #selector(quitClicked), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
 

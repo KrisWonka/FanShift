@@ -59,7 +59,7 @@ final class HUD {
         let mine = generation
         panel.alphaValue = 1
         panel.orderFrontRegardless()
-        HUD.debugLog("show #\(mine) \"\(text)\" 屏幕 \(screen.frame) 窗口 \(panel.frame) 共 \(NSScreen.screens.count) 块屏")
+        HUD.debugLog("show #\(mine) \"\(text)\" screen \(screen.frame) window \(panel.frame), \(NSScreen.screens.count) screen(s)")
 
         DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
             guard let self, self.generation == mine else { return }
@@ -70,10 +70,10 @@ final class HUD {
         }
         // 收起窗口不依赖淡出动画的完成回调：显示器休眠或锁屏时动画不会执行，回调也就不会来
         DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.25) { [weak self] in
-            HUD.debugLog("hide 定时器 #\(mine) 触发，当前 #\(self?.generation ?? -1)")
+            HUD.debugLog("hide timer #\(mine) fired, current #\(self?.generation ?? -1)")
             guard let self, self.generation == mine else { return }
             panel.orderOut(nil)
-            HUD.debugLog("orderOut 之后 isVisible=\(panel.isVisible)")
+            HUD.debugLog("after orderOut isVisible=\(panel.isVisible)")
         }
     }
 

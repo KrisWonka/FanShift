@@ -69,7 +69,7 @@ public final class FanGovernor {
         let anyForced = fans.contains { (try? hardware.mode(fan: $0.index)) == FanMode.forced }
         if !anyForced {
             try? hardware.setForceTest(false)
-            onEvent?("启动时发现 Ftst 停在 1 而没有风扇被接管，已清回 0")
+            onEvent?("Ftst was left at 1 with no fan taken over; reset it to 0")
         }
     }
 
@@ -77,10 +77,10 @@ public final class FanGovernor {
     /// 之后 lease 秒内没有再次调用，风扇会自动交还系统。
     public func setTargets(_ rpms: [Double], lease: TimeInterval, now: Date) throws {
         guard rpms.count == fans.count else {
-            throw GovernorError(description: "目标转速要 \(fans.count) 个，收到 \(rpms.count) 个")
+            throw GovernorError(description: "expected \(fans.count) target speeds, got \(rpms.count)")
         }
         guard rpms.allSatisfy(\.isFinite) else {
-            throw GovernorError(description: "目标转速不是有效数字")
+            throw GovernorError(description: "target speed is not a finite number")
         }
         let started = timing.now()
         do {
@@ -125,22 +125,22 @@ public final class FanGovernor {
             let elapsed = timing.now().timeIntervalSince(started)
             if mode == FanMode.forced {
                 if unlocked {
-                    onEvent?("风扇 \(fan.index) 用 Ftst 解锁后接管，用时 \(String(format: "%.1f", elapsed)) 秒")
+                    onEvent?("fan \(fan.index) taken over after Ftst unlock in \(String(format: "%.1f", elapsed)) s")
                 } else if attempts > 1 {
-                    onEvent?("风扇 \(fan.index) 重试后接管，用时 \(String(format: "%.1f", elapsed)) 秒")
+                    onEvent?("fan \(fan.index) taken over after retrying for \(String(format: "%.1f", elapsed)) s")
                 }
                 return
             }
             if hardware.hasForceTestKey, !unlocked {
                 if try hardware.forceTest() != 1 {
                     try hardware.setForceTest(true)
-                    onEvent?("风扇 \(fan.index) 被系统温控占着（模式 \(mode)），写 Ftst = 1 解锁")
+                    onEvent?("fan \(fan.index) is held by the system (mode \(mode)); writing Ftst = 1 to unlock")
                 }
                 unlocked = true
             }
             let timeout = hardware.hasForceTestKey ? Self.unlockAcquireTimeout : Self.directAcquireTimeout
             if elapsed >= timeout {
-                throw GovernorError(description: "风扇 \(fan.index) 接管失败：重试 \(String(format: "%.1f", elapsed)) 秒后模式还是 \(mode)")
+                throw GovernorError(description: "could not take over fan \(fan.index): still in mode \(mode) after retrying for \(String(format: "%.1f", elapsed)) s")
             }
             timing.sleep(Self.acquireRetryInterval)
         }
