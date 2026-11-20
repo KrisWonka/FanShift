@@ -106,6 +106,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func writeSnapshots(to dir: URL) {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         showSettings()
+        // FANSHIFT_SNAPSHOT_HEIGHT=<点数>：把设置窗口拉高再截，长页面（比如展开的曲线编辑器）能整页拍下来
+        if let h = Double(ProcessInfo.processInfo.environment["FANSHIFT_SNAPSHOT_HEIGHT"] ?? ""), h > 0 {
+            settingsWindow?.setContentSize(NSSize(width: 760, height: h))
+        }
         let names = ["settings", "sensors", "status", "about"]
         func step(_ i: Int) {
             guard i < names.count else {

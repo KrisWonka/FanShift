@@ -9,6 +9,7 @@
 # 用法：bash scripts/dev-sandbox.sh        启动（会先重新打包）
 #       bash scripts/dev-sandbox.sh stop   退出并清理
 #       SNAPSHOTS=1 bash scripts/dev-sandbox.sh   启动并把各页和菜单栏项渲染成 PNG
+#       SNAPSHOTS=1 SNAPSHOT_HEIGHT=1600 bash scripts/dev-sandbox.sh   同上，设置窗口拉高到 1600 点再截（整页拍下曲线编辑器）
 #       LANG_CODE=es bash scripts/dev-sandbox.sh   用指定的界面语言启动（en / zh-Hans / zh-Hant / es，会写进测试副本的配置）
 # 日志和进程号在同一个目录下的 log.txt 和 pid，启动后会打印出来
 # 注意：别动测试副本里的「登录时自动启动」开关，它改的是真实的自启项。
@@ -74,6 +75,7 @@ EXTRA=()
 if [ "${SNAPSHOTS:-}" = "1" ]; then
     rm -rf "$BOX/snapshots"
     EXTRA=(--env "FANSHIFT_SNAPSHOT_DIR=$BOX/snapshots")
+    if [ -n "${SNAPSHOT_HEIGHT:-}" ]; then EXTRA+=(--env "FANSHIFT_SNAPSHOT_HEIGHT=$SNAPSHOT_HEIGHT"); fi
 fi
 open --env "FANSHIFT_HOME=$BOX/home" --env FANSHIFT_DRYRUN=1 --env FANSHIFT_DEBUG=1 ${EXTRA[@]+"${EXTRA[@]}"} \
     --stderr "$BOX/log.txt" --stdout "$BOX/log.txt" "$APP"
