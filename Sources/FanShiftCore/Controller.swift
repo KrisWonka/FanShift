@@ -16,7 +16,7 @@ public enum ControllerEvent: Equatable {
 public final class FanController {
     public struct Tuning {
         /// 每次计算时，平滑温度向新读数靠拢的比例（2 秒算一次时，大约 6 秒跟上）。
-        /// 0.3 是和 TG Pro 对比标定出来的：它的读数也是这样慢半拍，温度在门槛上下晃时不会来回换级。
+        /// 平滑让读数慢半拍，温度在门槛上下晃时不会来回换级。
         public var smoothing = 0.3
         /// 原始温度到这个值就直接全速，不管曲线怎么画
         public var hardCeiling = 95.0
@@ -24,7 +24,7 @@ public final class FanController {
         public var stopHysteresis = 2.0
         /// 连直线方式下：目标转速变化小于这个值就不动，避免风扇一直微调
         public var rpmDeadband = 50.0
-        /// 阶梯方式下：换到另一级转速时用这么多秒匀速过渡（TG Pro 实测约 10 秒）
+        /// 阶梯方式下：换到另一级转速时用这么多秒匀速过渡
         public var rampSeconds = 10.0
 
         public init() {}

@@ -4,8 +4,6 @@
 
 A macOS menu bar app that cycles through named fan profiles with one global hotkey. Each profile is a temperature → fan speed curve that you edit by dragging points on a chart. FanShift drives the fans directly through the SMC, so no other fan utility is needed.
 
-It replaces my earlier project [tgpro-hotkey-mac](https://github.com/KrisWonka/tgpro-hotkey-mac), which did the same job by rewriting TG Pro's rules from a Hammerspoon hotkey.
-
 <p align="center"><img src="docs/images/curve-editor.png" width="640" alt="FanShift settings: a fan curve being edited"></p>
 
 > So far it has been tested on one machine: a MacBook Pro with M5 Pro (Mac17,9) on macOS 27. M1–M4 support is written but untested. See [Compatibility](#compatibility).
@@ -14,7 +12,7 @@ It replaces my earlier project [tgpro-hotkey-mac](https://github.com/KrisWonka/t
 
 - **Global hotkey** (default `⌃⌥⌘8`, rebindable). Each press moves to the next profile and shows its name in the middle of the screen. No Accessibility permission is needed.
 - **Menu bar readout** with the profile letter, temperature and fan speed. Left-click moves to the next profile; right-click opens a menu to pick a profile, open Settings or quit.
-  - Two layouts: one line (`P 52° 5330`), or two small stacked lines in the style of TG Pro (fan speed above the temperature, or the other way round).
+  - Two layouts: one line (`P 52° 5330`), or two small stacked lines (fan speed above the temperature, or the other way round).
   - The profile letter can be split off into its own menu bar item: click the letter to switch profiles, click the readout for the menu.
   - Optional second temperature, and optional colour when it gets hot (orange from 85 °C, red from 95 °C).
 - **Four profile types**
@@ -42,14 +40,6 @@ bash scripts/build-app.sh --install
 
 This builds the app, copies it to `/Applications` and starts it. On first launch FanShift asks to install its background helper, which needs your admin password once.
 
-### Coming from tgpro-hotkey-mac
-
-```bash
-bash scripts/cutover-from-tgpro.sh
-```
-
-The script installs FanShift, quits TG Pro and sets its fan control back to the system default, and disables the old `tgpro-hotkey` script in Hammerspoon. Every change is backed up first, and `scripts/rollback-to-tgpro.sh <backup folder>` undoes it. On first launch FanShift picks up your existing profiles and curves.
-
 ## How it works
 
 FanShift is two processes:
@@ -65,7 +55,7 @@ Writing fan speeds to the SMC requires root, and that is the only reason the hel
 
 **Curves.** By default a curve is a staircase: once the temperature passes a point, that point's percentage applies until the next point is passed. A change of level is spread over about 10 seconds. 0 % is the fan's minimum speed and 100 % is its maximum. A linear mode that interpolates between points is available in Settings.
 
-**Reference temperature.** A Temperature profile follows the hottest CPU core by default, minus 2 °C and lightly smoothed. I chose these values by logging FanShift next to TG Pro on the same curve: across 216 samples where TG Pro had settled on a level, FanShift picked the same level every time. That comparison only covers temperatures up to about 60 °C. The offset can be changed in Settings, and each profile can follow a different sensor.
+**Reference temperature.** A Temperature profile follows the hottest CPU core by default, with a −2 °C offset and light smoothing so that brief spikes don't flip it between levels. The offset can be changed in Settings, and each profile can follow a different sensor.
 
 More detail is in [docs/design.md](docs/design.md) (in Chinese).
 

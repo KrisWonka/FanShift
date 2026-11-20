@@ -230,7 +230,7 @@ final class ConfigTests: XCTestCase {
             SensorReading(name: SensorMath.coreName("Tp00"), value: 58),
             SensorReading(name: SensorMath.coreName("Tp04"), value: 53),
         ]
-        // 曲线参考的温度 = 最热的 CPU 核心（等同 TG Pro 的 Highest CPU）
+        // 曲线参考的温度 = 最热的 CPU 核心
         XCTAssertEqual(SensorMath.value(.cpuMax, from: readings), 58)
         // Cooldown 参考的温度仍是芯片温度点的平均（和旧版一致）
         XCTAssertEqual(SensorMath.value(.cpuAvg, from: readings), 47)

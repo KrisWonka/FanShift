@@ -40,7 +40,7 @@ public struct SensorReading: Equatable {
 /// 读数来自两处：
 /// - IOHID 的温度传感器（芯片上的温度点、硬盘、电池）；
 /// - SMC 里的 CPU 核心温度（键名 Tp** 是性能核心，Te** 是能效核心）。核心温度比芯片上的温度点
-///   更靠近发热源，负载下要高出几度。TG Pro 的「Highest CPU」跟的就是这一组（实测吻合度 99%）。
+///   更靠近发热源，负载下要高出几度。
 public final class TemperatureSensors {
     private let client: CFTypeRef?
     private var coreKeys: [String]?
@@ -93,7 +93,7 @@ public final class TemperatureSensors {
 
 /// 一个档位的曲线参考哪个温度
 public enum SensorSelection: Hashable, Codable {
-    case cpuMax          // 最热的 CPU 核心（默认；等同 TG Pro 的 Highest CPU）
+    case cpuMax          // 最热的 CPU 核心（默认）
     case cpuAvg          // 芯片上各温度点的平均（Cooldown 用的就是它）
     case anyMax          // 所有传感器里最热的（含硬盘、电池）
     case named(String)   // 指定某一个传感器

@@ -4,9 +4,9 @@ import Foundation
 public enum MenuBarStyle: String, Codable, CaseIterable, Identifiable {
     /// 一行：P 52° 5330
     case inline
-    /// 两行小字，转速在上、温度在下（TG Pro 的「Fan RPM Above」）
+    /// 两行小字，转速在上、温度在下
     case stackedRPMAbove
-    /// 两行小字，温度在上、转速在下（TG Pro 的「Fan RPM Below」）
+    /// 两行小字，温度在上、转速在下
     case stackedRPMBelow
 
     public var id: String { rawValue }
@@ -14,7 +14,7 @@ public enum MenuBarStyle: String, Codable, CaseIterable, Identifiable {
     public var displayName: String {
         switch self {
         case .inline: return "One line (P 52° 5330)"
-        case .stackedRPMAbove: return "Two lines, RPM on top (like TG Pro)"
+        case .stackedRPMAbove: return "Two lines, RPM on top"
         case .stackedRPMBelow: return "Two lines, RPM below"
         }
     }

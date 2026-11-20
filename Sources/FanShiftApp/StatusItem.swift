@@ -50,7 +50,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         role == .readout ? readout : letter
     }
 
-    /// 这一项该放在哪。存过就用存的；没存过：读数沿用系统里已有的位置，再不行放在 TG Pro 图标原来的位置；
+    /// 这一项该放在哪。存过就用存的；没存过：读数沿用系统里已有的位置，再不行放在离屏幕右边 300 点的地方；
     /// 字母紧挨在读数左边。
     private func position(for role: Role) -> Double {
         let defaults = UserDefaults.standard
@@ -59,9 +59,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         switch role {
         case .readout:
             let existing = defaults.double(forKey: Self.systemPositionKey("Item-0"))
-            let tgPro = UserDefaults(suiteName: "com.tunabellysoftware.tgpro")?
-                .double(forKey: Self.systemPositionKey("Item-0")) ?? 0
-            value = existing > 0 ? existing : (tgPro > 0 ? tgPro : 300)
+            value = existing > 0 ? existing : 300
         case .letter:
             value = position(for: .readout) + 1
         }

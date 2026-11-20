@@ -30,7 +30,7 @@ final class MenuBarTests: XCTestCase {
         XCTAssertEqual(layout(config, warning: true).letterItem, "⚠︎ P")
     }
 
-    func testStackedLikeTGProPutsRPMAboveTemperatures() {
+    func testStackedPutsRPMAboveTemperatures() {
         var config = AppConfig()
         config.menuBarStyle = .stackedRPMAbove
         config.menuBarSecondSensor = .cpuAvg

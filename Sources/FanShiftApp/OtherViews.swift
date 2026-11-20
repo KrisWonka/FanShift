@@ -180,11 +180,11 @@ struct StatusView: View {
                         detail: L.hiddenDetail.s
                     )
                 }
-                if s.tgProRunning {
+                if s.otherController {
                     statusRow(
-                        label: L.tgProRunningTitle.s,
+                        label: L.otherControllerTitle.s,
                         ok: false,
-                        detail: L.tgProRunningDetail(FanShiftInfo.appName).s
+                        detail: L.otherControllerDetail(FanShiftInfo.appName).s
                     )
                 }
                 if let error = model.lastError {

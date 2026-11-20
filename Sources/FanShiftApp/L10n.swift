@@ -101,7 +101,7 @@ enum L {
     static func curveMode(_ mode: CurveMode) -> Tr {
         switch mode {
         case .step:
-            return Tr(en: "Steps (like TG Pro)", hans: "阶梯（和 TG Pro 一样）", hant: "階梯（和 TG Pro 一樣）", es: "Escalones (como TG Pro)")
+            return Tr(en: "Steps", hans: "阶梯", hant: "階梯", es: "Escalones")
         case .linear:
             return Tr(en: "Linear (smoother, faster fans on the same curve)",
                       hans: "连直线（更平滑，同一条曲线下转速会更高）",
@@ -116,10 +116,10 @@ enum L {
         es: "Escalones: al superar un punto se usa su velocidad, y los cambios se reparten en unos 10 segundos. Lineal: la velocidad cambia en proporción entre los puntos.")
     static let hotCoreOffset = Tr(en: "Hottest-core offset", hans: "最热核心的温度修正", hant: "最熱核心的溫度修正", es: "Ajuste del núcleo más caliente")
     static let hotCoreOffsetHelp = Tr(
-        en: "When a profile follows the hottest CPU core, this is added to the reading before looking up the curve. TG Pro reads about 2 °C below the hottest core, so the default of −2 makes curves behave as they did in TG Pro. 0 uses the raw reading. The menu bar always shows the raw reading.",
-        hans: "参考温度选「最热的 CPU 核心」时，先在读数上加这个值再去查曲线。实测 TG Pro 的读数比最热核心低约 2°C，默认 −2 才和原来的曲线手感一致；0 就是原始读数。菜单栏显示的始终是原始读数。",
-        hant: "參考溫度選「最熱的 CPU 核心」時，先在讀數上加這個值再去查曲線。實測 TG Pro 的讀數比最熱核心低約 2°C，預設 −2 才和原來的曲線手感一致；0 就是原始讀數。選單列顯示的始終是原始讀數。",
-        es: "Cuando un perfil sigue el núcleo de CPU más caliente, este valor se suma a la lectura antes de consultar la curva. TG Pro marca unos 2 °C menos que el núcleo más caliente, así que el valor predeterminado de −2 hace que las curvas se comporten como en TG Pro. Con 0 se usa la lectura tal cual. La barra de menús siempre muestra la lectura sin ajustar.")
+        en: "When a profile follows the hottest CPU core, this is added to the reading before looking up the curve. The default is −2 °C; 0 uses the raw reading. The menu bar always shows the raw reading.",
+        hans: "参考温度选「最热的 CPU 核心」时，先在读数上加这个值再去查曲线。默认 −2°C；0 就是原始读数。菜单栏显示的始终是原始读数。",
+        hant: "參考溫度選「最熱的 CPU 核心」時，先在讀數上加這個值再去查曲線。預設 −2°C；0 就是原始讀數。選單列顯示的始終是原始讀數。",
+        es: "Cuando un perfil sigue el núcleo de CPU más caliente, este valor se suma a la lectura antes de consultar la curva. El valor predeterminado es −2 °C; con 0 se usa la lectura tal cual. La barra de menús siempre muestra la lectura sin ajustar.")
     static let curveTitle = Tr(en: "Curve (drag points; right-click to delete)", hans: "曲线（拖拽调点；右键删除）", hant: "曲線（拖曳調整點；按右鍵刪除）", es: "Curva (arrastra los puntos; clic derecho para eliminar)")
     static let addPoint = Tr(en: "Add a point", hans: "加一个点", hant: "加一個點", es: "Añadir un punto")
     static let loadPreset = Tr(en: "Load preset", hans: "载入预设", hant: "載入預設", es: "Cargar preajuste")
@@ -155,7 +155,7 @@ enum L {
         case .inline:
             return Tr(en: "One line (P 52° 5330)", hans: "一行（P 52° 5330）", hant: "一行（P 52° 5330）", es: "Una línea (P 52° 5330)")
         case .stackedRPMAbove:
-            return Tr(en: "Two lines, RPM on top (like TG Pro)", hans: "两行，转速在上（仿 TG Pro）", hant: "兩行，轉速在上（仿 TG Pro）", es: "Dos líneas, RPM arriba (como TG Pro)")
+            return Tr(en: "Two lines, RPM on top", hans: "两行，转速在上", hant: "兩行，轉速在上", es: "Dos líneas, RPM arriba")
         case .stackedRPMBelow:
             return Tr(en: "Two lines, RPM below", hans: "两行，转速在下", hant: "兩行，轉速在下", es: "Dos líneas, RPM abajo")
         }
@@ -192,10 +192,10 @@ enum L {
 
     static let sensorHottestCore = Tr(en: "Hottest CPU core", hans: "最热的 CPU 核心", hant: "最熱的 CPU 核心", es: "Núcleo de CPU más caliente")
     static let sensorHottestCoreRecommended = Tr(
-        en: "Hottest CPU core (recommended, same as TG Pro's Highest CPU)",
-        hans: "最热的 CPU 核心（推荐，等同 TG Pro 的 Highest CPU）",
-        hant: "最熱的 CPU 核心（建議，等同 TG Pro 的 Highest CPU）",
-        es: "Núcleo de CPU más caliente (recomendado, igual que Highest CPU de TG Pro)")
+        en: "Hottest CPU core (recommended)",
+        hans: "最热的 CPU 核心（推荐）",
+        hant: "最熱的 CPU 核心（建議）",
+        es: "Núcleo de CPU más caliente (recomendado)")
     static let sensorChipAverage = Tr(en: "Chip average", hans: "芯片各温度点的平均", hant: "晶片各溫度點的平均", es: "Media del chip")
     static let sensorHottestAny = Tr(en: "Hottest sensor (including SSD and battery)", hans: "所有传感器里最热的（含硬盘、电池）", hant: "所有感測器裡最熱的（含硬碟、電池）", es: "Sensor más caliente (incluye SSD y batería)")
     static func unavailable(_ name: String) -> Tr {
@@ -255,12 +255,12 @@ enum L {
         hans: "右边的菜单栏图标太多，系统把排不下的藏起来了（有刘海的屏幕上是藏到刘海底下）。可以在设置的「菜单栏」里换成两行样式、关掉温度或转速，或者减少其他菜单栏图标。快捷键不受影响。",
         hant: "右邊的選單列圖示太多，系統把排不下的藏起來了（有瀏海的螢幕上是藏到瀏海底下）。可以在設定的「選單列」裡換成兩行樣式、關掉溫度或轉速，或者減少其他選單列圖示。快速鍵不受影響。",
         es: "Hay demasiados elementos a la derecha de la barra de menús y macOS oculta los que no caben (detrás de la muesca en las pantallas que la tienen). En Ajustes → Barra de menús puedes usar el estilo de dos líneas o desactivar la temperatura o la velocidad; quitar otros elementos también ayuda. El atajo sigue funcionando.")
-    static let tgProRunningTitle = Tr(en: "TG Pro is running", hans: "TG Pro 正在运行", hant: "TG Pro 正在執行", es: "TG Pro se está ejecutando")
-    static func tgProRunningDetail(_ app: String) -> Tr {
-        Tr(en: "Two apps controlling the fans overwrite each other. Quit TG Pro while using \(app).",
-           hans: "两个软件同时控制风扇会互相覆盖。用 \(app) 控制时请退出 TG Pro。",
-           hant: "兩個軟體同時控制風扇會互相覆蓋。用 \(app) 控制時請結束 TG Pro。",
-           es: "Dos apps que controlan los ventiladores se pisan entre sí. Cierra TG Pro mientras uses \(app).")
+    static let otherControllerTitle = Tr(en: "Another app is controlling the fans", hans: "另一个软件正在控制风扇", hant: "另一個軟體正在控制風扇", es: "Otra app está controlando los ventiladores")
+    static func otherControllerDetail(_ app: String) -> Tr {
+        Tr(en: "The fans are in manual mode, but not because of \(app). Two apps controlling the fans overwrite each other; quit the other one while using \(app).",
+           hans: "风扇处在手动模式，但不是 \(app) 设的。两个软件同时控制风扇会互相覆盖，用 \(app) 时请退出另一个。",
+           hant: "風扇處於手動模式，但不是 \(app) 設定的。兩個軟體同時控制風扇會互相覆蓋，使用 \(app) 時請結束另一個。",
+           es: "Los ventiladores están en modo manual, pero no por \(app). Dos apps que controlan los ventiladores se pisan entre sí; cierra la otra mientras uses \(app).")
     }
     static let lastError = Tr(en: "Last error", hans: "最近一次出错", hant: "最近一次錯誤", es: "Último error")
     static func configFile(_ path: String) -> Tr { Tr(en: "Configuration: \(path)", hans: "配置文件：\(path)", hant: "設定檔：\(path)", es: "Configuración: \(path)") }

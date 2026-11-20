@@ -49,7 +49,7 @@ public enum AppLanguage: String, Codable, CaseIterable, Identifiable {
 
 /// 曲线上两个点之间怎么取值
 public enum CurveMode: String, Codable, CaseIterable, Identifiable {
-    /// 阶梯：温度超过某个点，就用那个点的转速，直到超过下一个点（TG Pro 的做法）
+    /// 阶梯：温度超过某个点，就用那个点的转速，直到超过下一个点
     case step
     /// 连直线：两个点之间按比例过渡
     case linear
@@ -58,7 +58,7 @@ public enum CurveMode: String, Codable, CaseIterable, Identifiable {
 
     public var displayName: String {
         switch self {
-        case .step: return "Steps (like TG Pro)"
+        case .step: return "Steps"
         case .linear: return "Linear (smoother, faster fans on the same curve)"
         }
     }
@@ -164,7 +164,7 @@ public struct CycleStep: Codable, Identifiable, Equatable {
         if let s = try c.decodeIfPresent(SensorSelection.self, forKey: .sensor) {
             sensor = s
         } else if let legacy = try c.decodeIfPresent(Int.self, forKey: .configSensor) {
-            // 旧版存的是 TG Pro 的传感器编号：0 = Any Sensor，4 = Highest CPU
+            // 旧版存的是传感器编号：0 = 任意传感器，4 = 最热的 CPU
             sensor = legacy == 0 ? .anyMax : .cpuMax
         } else {
             sensor = .cpuMax
@@ -212,7 +212,6 @@ public struct AppConfig: Codable, Equatable {
 
     public var curveMode: CurveMode = .step
     /// 参考温度选「最热的 CPU 核心」时，在读数上加的修正值（°C）。
-    /// 实测 TG Pro 的 Highest CPU 比最热核心的读数低约 2°C（四次标定 216 行数据，减 2°C 后 100% 吻合），
     /// 默认减 2°C，同一条曲线才和原来手感一致。设成 0 就是原始读数。
     public var hotCoreOffset: Double = -2.0
 

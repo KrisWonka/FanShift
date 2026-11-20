@@ -23,7 +23,8 @@ struct Snapshot: Equatable {
     var controlling = false
     var fans: [FanReadout] = []
     var readings: [SensorReading] = []
-    var tgProRunning = false
+    /// 风扇处在手动模式、但不是我们设的：多半有别的软件在控制风扇
+    var otherController = false
 
     var averageRPM: Double? {
         fans.isEmpty ? nil : fans.map(\.actual).reduce(0, +) / Double(fans.count)
@@ -70,6 +71,8 @@ final class AppModel: ObservableObject {
     private var suspended = false
     private var lastHelperCheck = Date.distantPast
     private var activity: NSObjectProtocol?
+    /// 连续几次看到「风扇在手动模式、但不是我们设的」
+    private var foreignTicks = 0
 
     private init() {
         let env = ProcessInfo.processInfo.environment
@@ -306,7 +309,6 @@ final class AppModel: ObservableObject {
         snap.temperature = controller.lastTemperature
         snap.percent = controller.lastPercent
         snap.readings = readings
-        snap.tgProRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: "com.tunabellysoftware.tgpro").isEmpty
         if case .targets = command { snap.controlling = helperReady }
         if let hardware {
             snap.fans = hardware.fans.map { fan in
@@ -320,6 +322,11 @@ final class AppModel: ObservableObject {
                 )
             }
         }
+        // 我们没在给目标转速、风扇却处在手动模式：别的软件在控制。连续两次才算，
+        // 免得刚交还风扇的那一下（模式还没变回来）误报
+        let foreign = !snap.controlling && snap.fans.contains { $0.mode == FanMode.forced }
+        foreignTicks = foreign ? foreignTicks + 1 : 0
+        snap.otherController = foreignTicks >= 2
         DispatchQueue.main.async {
             if self.snapshot != snap { self.snapshot = snap }
         }
