@@ -83,7 +83,7 @@ Two things to know before installing:
 ## Compatibility
 
 - **M5 Pro MacBook Pro (Mac17,9), macOS 27**: tested. Two fans, 2317–7826 RPM.
-- **M1–M4**: written, **not yet tested on real hardware**. These chips need an extra step before the fans can be taken over: when the system's thermal manager is holding a fan, FanShift sets the `Ftst` key to 1, retries for up to 10 seconds, and sets it back to 0 when it hands the fans back. The same sequence is used by [chill](https://github.com/adriangalilea/chill), [smctl](https://github.com/leaperone/smctl) and [MacFanControl](https://github.com/raminsharifi/MacFanControl) (all MIT). If you have one of these Macs, a report in Issues would help a lot, whether it works or not.
+- **M1–M4**: written, **not yet tested on real hardware**. These chips need an extra step before the fans can be taken over: when the system's thermal manager is holding a fan, FanShift sets the `Ftst` key to 1, retries for up to 10 seconds, and sets it back to 0 when it hands the fans back. The same sequence is used by [chill](https://github.com/adriangalilea/chill), [smctl](https://github.com/leaperone/smctl) and [MacFanControl](https://github.com/raminsharifi/MacFanControl) (all MIT). If you have one of these Macs, a [hardware report](https://github.com/KrisWonka/FanShift/issues/new?template=hardware-report.md) would help a lot, whether it works or not.
 - **Intel Macs**: not supported.
 
 The package targets macOS 14 or later.

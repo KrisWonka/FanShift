@@ -83,7 +83,7 @@ FanShift 是两个进程：
 ## 兼容性
 
 - **M5 Pro 的 MacBook Pro（Mac17,9），macOS 27**：测过。两个风扇，2317–7826 转。
-- **M1–M4**：已经写了，**还没在真机上测过**。这几代芯片接管风扇前多一步：系统温控占着风扇时，FanShift 把 `Ftst` 键写成 1，最多重试 10 秒；交还风扇时再写回 0。[chill](https://github.com/adriangalilea/chill)、[smctl](https://github.com/leaperone/smctl)、[MacFanControl](https://github.com/raminsharifi/MacFanControl)（都是 MIT 许可）用的是同样的步骤。如果你有这几代的 Mac，不管能不能用，在 Issues 里说一声都很有帮助。
+- **M1–M4**：已经写了，**还没在真机上测过**。这几代芯片接管风扇前多一步：系统温控占着风扇时，FanShift 把 `Ftst` 键写成 1，最多重试 10 秒；交还风扇时再写回 0。[chill](https://github.com/adriangalilea/chill)、[smctl](https://github.com/leaperone/smctl)、[MacFanControl](https://github.com/raminsharifi/MacFanControl)（都是 MIT 许可）用的是同样的步骤。如果你有这几代的 Mac，不管能不能用，提一个[硬件报告](https://github.com/KrisWonka/FanShift/issues/new?template=hardware-report.md)都很有帮助。
 - **Intel Mac**：不支持。
 
 这个包面向 macOS 14 及以上。

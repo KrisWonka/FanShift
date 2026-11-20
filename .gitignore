@@ -8,3 +8,5 @@ Package.resolved
 # 本机的开发笔记，不进仓库
 DEV_NOTES.md
 SESSION_LOG.md
+# 发帖之类的草稿
+DRAFT-*.md
