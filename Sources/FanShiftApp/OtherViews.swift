@@ -134,7 +134,11 @@ struct StatusView: View {
                 )
                 HStack {
                     Button(model.helperState == .notInstalled ? L.installHelper.s : L.reinstallHelper.s) {
-                        message = model.installHelper().map { L.installFailedMessage($0).s } ?? L.installed.s
+                        switch model.installHelperResult() {
+                        case nil: message = L.installed.s
+                        case .cancelled?: message = L.cancelled.s  // 在密码框点了取消，不算失败
+                        case .failed(let reason)?: message = L.installFailedMessage(reason).s
+                        }
                     }
                     Button(L.uninstallHelper.s) {
                         message = model.uninstallHelper().map { L.uninstallFailedMessage($0).s } ?? L.uninstalled.s
