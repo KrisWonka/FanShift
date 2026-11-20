@@ -117,7 +117,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             let f = window.frame
             let system = UserDefaults.standard.object(forKey: Self.systemPositionKey(role.autosaveName)).map { "\($0)" } ?? "none"
             let saved = UserDefaults.standard.object(forKey: Self.savedPositionKey(role)).map { "\($0)" } ?? "none"
-            return "\(role.displayName): x \(Int(f.minX))–\(Int(f.maxX)), \(window.occlusionState.contains(.visible) ? "visible" : "hidden"), "
+            return "\(role.displayName): x \(Int(f.minX))–\(Int(f.maxX)) y \(Int(f.minY))–\(Int(f.maxY)) alpha \(String(format: "%.1f", window.alphaValue)) level \(window.level.rawValue), \(window.occlusionState.contains(.visible) ? "visible" : "hidden"), "
                 + "position \(system), saved \(saved)"
         }
         let screen = readout?.button?.window?.screen ?? letter?.button?.window?.screen ?? NSScreen.main
@@ -205,6 +205,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         return image
     }
 
+    /// 提示文字只在真的变了的时候才设。读数每 2 秒刷新一次，每次都重设提示的话，
+    /// 提示正显示着时会被系统卡在屏幕上（图标被挤走、换了位置之后还留在原地）。
+    private static func setToolTip(_ button: NSStatusBarButton, _ text: String) {
+        if button.toolTip != text { button.toolTip = text }
+    }
+
     private func render(_ s: Snapshot, _ config: AppConfig, _ helper: HelperState) {
         let layout = Self.layout(s, config, helper)
         // 每次重画都按当前语言重新生成（改语言会改配置，配置一变这里就会重画）
@@ -241,7 +247,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
                         button.title = ([layout.leading].compactMap { $0 } + segments.map(\.text)).joined(separator: " ")
                     }
                 }
-                button.toolTip = layout.leading == nil ? L.tipMenu(s.stepName).s : cycleTip
+                Self.setToolTip(button, layout.leading == nil ? L.tipMenu(s.stepName).s : cycleTip)
             }
         }
 
@@ -249,7 +255,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         if let text = layout.letterItem {
             if letter == nil { letter = create(.letter) }
             letter?.button?.title = text
-            letter?.button?.toolTip = cycleTip
+            if let button = letter?.button { Self.setToolTip(button, cycleTip) }
         } else {
             remove(.letter)
         }
