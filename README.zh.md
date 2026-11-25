@@ -6,7 +6,7 @@
 
 <p align="center"><img src="docs/images/demo.gif" width="720" alt="按 ⌃⌥⌘8 切换风扇档位，拖点编辑曲线"></p>
 
-<p align="center"><b><a href="https://github.com/KrisWonka/FanShift/releases/latest">下载 FanShift</a></b> · Apple 芯片 · macOS 14 或更新 · 免费开源</p>
+<p align="center"><b><a href="https://github.com/KrisWonka/FanShift/releases/latest">下载 FanShift</a></b> · <a href="https://www.youtube.com/watch?v=fIecRC_fuf0">看 90 秒演示视频</a> · Apple 芯片 · macOS 14 或更新 · 免费开源</p>
 
 > 目前只在一台机器上测过：M5 Pro 的 MacBook Pro（Mac17,9），macOS 27。M1–M4 的支持已经写了，但没测过。见[兼容性](#兼容性)。
 

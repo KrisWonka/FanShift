@@ -6,7 +6,7 @@ A macOS menu bar app that cycles through named fan profiles with one global hotk
 
 <p align="center"><img src="docs/images/demo.gif" width="720" alt="Press ⌃⌥⌘8 to switch fan profiles, and drag points to edit a curve"></p>
 
-<p align="center"><b><a href="https://github.com/KrisWonka/FanShift/releases/latest">Download FanShift</a></b> · Apple Silicon · macOS 14 or later · free and open source</p>
+<p align="center"><b><a href="https://github.com/KrisWonka/FanShift/releases/latest">Download FanShift</a></b> · <a href="https://www.youtube.com/watch?v=fIecRC_fuf0">Watch the 90-second demo</a> · Apple Silicon · macOS 14 or later · free and open source</p>
 
 > So far it has been tested on one machine: a MacBook Pro with M5 Pro (Mac17,9) on macOS 27. M1–M4 support is written but untested. See [Compatibility](#compatibility).
 
