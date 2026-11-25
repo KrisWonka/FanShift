@@ -34,6 +34,23 @@
 
 ## 安装
 
+用 [Homebrew](https://brew.sh)：
+
+```bash
+brew install --cask kriswonka/tap/fanshift
+```
+
+或者一行命令：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KrisWonka/FanShift/main/scripts/install-release.sh | bash
+```
+
+两种方式都会把 FanShift 装进「应用程序」，打开时不会被系统安全提示拦下。第一次启动时 FanShift 会要求安装它的后台程序，需要输一次管理员密码。
+
+<details>
+<summary>也可以自己下载</summary>
+
 1. 从 [Releases](https://github.com/KrisWonka/FanShift/releases/latest) 下载 `FanShift-0.1.0.zip`，解压后把 `FanShift.app` 拖进「应用程序」。
 2. 打开它。FanShift 还没经过 Apple 公证，第一次打开会被系统拦下：打开「系统设置 → 隐私与安全性」，往下翻，点「仍要打开」。也可以在终端里跑：
 
@@ -41,7 +58,7 @@
    xattr -dr com.apple.quarantine /Applications/FanShift.app
    ```
 
-3. 第一次启动时 FanShift 会要求安装它的后台程序，需要输一次管理员密码。
+</details>
 
 ### 从源码编译
 
@@ -101,11 +118,19 @@ FanShift 是两个进程：
 
 ## 卸载
 
+用 Homebrew 装的：
+
 ```bash
-bash scripts/uninstall.sh
+brew uninstall --cask fanshift
 ```
 
-这会退出 App、把风扇交还系统、删掉后台程序和 App。`~/Library/Application Support/FanShift` 里的配置会留着。
+其他方式装的：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KrisWonka/FanShift/main/scripts/uninstall.sh | bash
+```
+
+两种都会退出 App、把风扇交还系统、删掉后台程序和 App。`~/Library/Application Support/FanShift` 里的配置会留着；`brew uninstall --zap --cask fanshift` 会连配置一起删。
 
 ## 开发
 

@@ -34,6 +34,23 @@ A macOS menu bar app that cycles through named fan profiles with one global hotk
 
 ## Install
 
+With [Homebrew](https://brew.sh):
+
+```bash
+brew install --cask kriswonka/tap/fanshift
+```
+
+Or with one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KrisWonka/FanShift/main/scripts/install-release.sh | bash
+```
+
+Either way FanShift goes into `/Applications`, and macOS opens it without a security prompt. On first launch FanShift asks to install its background helper, which needs your admin password once.
+
+<details>
+<summary>Or download it yourself</summary>
+
 1. Download `FanShift-0.1.0.zip` from [Releases](https://github.com/KrisWonka/FanShift/releases/latest), unzip it and move `FanShift.app` to `/Applications`.
 2. Open it. FanShift is not notarized by Apple yet, so macOS blocks the first launch. Open **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. Or run this in Terminal:
 
@@ -41,7 +58,7 @@ A macOS menu bar app that cycles through named fan profiles with one global hotk
    xattr -dr com.apple.quarantine /Applications/FanShift.app
    ```
 
-3. On first launch FanShift asks to install its background helper, which needs your admin password once.
+</details>
 
 ### Build from source
 
@@ -101,11 +118,19 @@ The package targets macOS 14 or later.
 
 ## Uninstall
 
+If you installed with Homebrew:
+
 ```bash
-bash scripts/uninstall.sh
+brew uninstall --cask fanshift
 ```
 
-This quits the app, returns the fans to the system, and removes the helper and the app. Your configuration in `~/Library/Application Support/FanShift` is kept.
+Otherwise:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KrisWonka/FanShift/main/scripts/uninstall.sh | bash
+```
+
+Both quit the app, return the fans to the system, and remove the helper and the app. Your configuration in `~/Library/Application Support/FanShift` is kept; `brew uninstall --zap --cask fanshift` removes it as well.
 
 ## Development
 
