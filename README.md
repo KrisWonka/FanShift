@@ -4,7 +4,9 @@
 
 A macOS menu bar app that cycles through named fan profiles with one global hotkey. Each profile is a temperature → fan speed curve that you edit by dragging points on a chart. FanShift drives the fans directly through the SMC, so no other fan utility is needed.
 
-<p align="center"><img src="docs/images/curve-editor.png" width="640" alt="FanShift settings: a fan curve being edited"></p>
+<p align="center"><img src="docs/images/demo.gif" width="720" alt="Press ⌃⌥⌘8 to switch fan profiles, and drag points to edit a curve"></p>
+
+<p align="center"><b><a href="https://github.com/KrisWonka/FanShift/releases/latest">Download FanShift</a></b> · Apple Silicon · macOS 14 or later · free and open source</p>
 
 > So far it has been tested on one machine: a MacBook Pro with M5 Pro (Mac17,9) on macOS 27. M1–M4 support is written but untested. See [Compatibility](#compatibility).
 
@@ -21,6 +23,8 @@ A macOS menu bar app that cycles through named fan profiles with one global hotk
   - **Full Blast**: full speed, with an optional timer (1–60 minutes) that hands the fans back to the system.
   - **Cooldown**: full speed until the average chip temperature drops below a target, then hands the fans back.
 - **Curve editor**: drag points on a 5 °C / 5 % grid, right-click a point to delete it, and drag a point into the Stop zone to leave that temperature range to the system. A marker shows where the current temperature sits on the curve.
+
+  <img src="docs/images/curve-editor.png" width="560" alt="FanShift settings: a fan curve being edited">
 - **Sensors tab** that lists every temperature sensor, refreshed every 2 seconds.
 
   <img src="docs/images/sensors.png" width="480" alt="Sensors tab">
@@ -30,7 +34,18 @@ A macOS menu bar app that cycles through named fan profiles with one global hotk
 
 ## Install
 
-FanShift is built from source. You need the Xcode Command Line Tools (Swift 5.9 or later).
+1. Download `FanShift-0.1.0.zip` from [Releases](https://github.com/KrisWonka/FanShift/releases/latest), unzip it and move `FanShift.app` to `/Applications`.
+2. Open it. FanShift is not notarized by Apple yet, so macOS blocks the first launch. Open **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. Or run this in Terminal:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/FanShift.app
+   ```
+
+3. On first launch FanShift asks to install its background helper, which needs your admin password once.
+
+### Build from source
+
+You need the Xcode Command Line Tools (Swift 5.9 or later).
 
 ```bash
 git clone https://github.com/KrisWonka/FanShift.git

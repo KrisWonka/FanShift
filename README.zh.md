@@ -4,7 +4,9 @@
 
 一个 macOS 菜单栏 App：用一个全局快捷键在几个命名的风扇档位之间循环切换。每个档位是一条「温度 → 风扇转速」曲线，在图上拖点编辑。FanShift 通过 SMC 直接控制风扇，不需要别的风扇软件。
 
-<p align="center"><img src="docs/images/curve-editor.png" width="640" alt="FanShift 设置页：编辑风扇曲线"></p>
+<p align="center"><img src="docs/images/demo.gif" width="720" alt="按 ⌃⌥⌘8 切换风扇档位，拖点编辑曲线"></p>
+
+<p align="center"><b><a href="https://github.com/KrisWonka/FanShift/releases/latest">下载 FanShift</a></b> · Apple 芯片 · macOS 14 或更新 · 免费开源</p>
 
 > 目前只在一台机器上测过：M5 Pro 的 MacBook Pro（Mac17,9），macOS 27。M1–M4 的支持已经写了，但没测过。见[兼容性](#兼容性)。
 
@@ -21,6 +23,8 @@
   - **Full Blast**：全速，可以设一个定时（1–60 分钟），到点把风扇交还系统。
   - **Cooldown**：全速，直到芯片平均温度降到目标值以下，然后把风扇交还系统。
 - **曲线编辑器**：在 5 °C / 5 % 的格子上拖点，右键删除一个点，把点拖进 Stop 区表示这一段温度交给系统。图上有一个标记显示当前温度落在曲线的哪个位置。
+
+  <img src="docs/images/curve-editor.png" width="560" alt="FanShift 设置页：编辑风扇曲线">
 - **Sensors 页**列出所有温度传感器，每 2 秒刷新。
 
   <img src="docs/images/sensors.png" width="480" alt="传感器页">
@@ -30,7 +34,18 @@
 
 ## 安装
 
-FanShift 需要从源码编译，要先装好 Xcode 命令行工具（Swift 5.9 或更新）。
+1. 从 [Releases](https://github.com/KrisWonka/FanShift/releases/latest) 下载 `FanShift-0.1.0.zip`，解压后把 `FanShift.app` 拖进「应用程序」。
+2. 打开它。FanShift 还没经过 Apple 公证，第一次打开会被系统拦下：打开「系统设置 → 隐私与安全性」，往下翻，点「仍要打开」。也可以在终端里跑：
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/FanShift.app
+   ```
+
+3. 第一次启动时 FanShift 会要求安装它的后台程序，需要输一次管理员密码。
+
+### 从源码编译
+
+要先装好 Xcode 命令行工具（Swift 5.9 或更新）。
 
 ```bash
 git clone https://github.com/KrisWonka/FanShift.git
