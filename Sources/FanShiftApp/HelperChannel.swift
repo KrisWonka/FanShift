@@ -176,6 +176,9 @@ enum HelperInstaller {
             "/bin/mkdir -p /Library/PrivilegedHelperTools"
                 + " && /usr/bin/install -o root -g wheel -m 755 \(quote(daemon)) \(quote(FanShiftInfo.daemonBinaryPath))"
                 + " && /usr/bin/install -o root -g wheel -m 644 \(quote(plist)) \(quote(FanShiftInfo.daemonPlistPath))"
+                // 从网上下载的 App 带隔离标记，install 会把它一起拷过去；后台程序是 launchd 以 root 身份启动的，
+                // 带着标记可能被系统拒绝启动，而且没有窗口能提示用户，所以装好就去掉
+                + " && { /usr/bin/xattr -d com.apple.quarantine \(quote(FanShiftInfo.daemonBinaryPath)) \(quote(FanShiftInfo.daemonPlistPath)) 2>/dev/null || true; }"
                 + " && /bin/launchctl bootstrap system \(quote(FanShiftInfo.daemonPlistPath))",
         ].joined(separator: "; ")
         return runAsAdmin(shell, prompt: L.installPrompt(FanShiftInfo.appName).s)
